@@ -30,7 +30,7 @@ function clampInt(value, min, max, fallback) {
 function format(r) {
   const L = []
   L.push(`${r.ok ? 'OK' : 'FAILED'} — ${r.file}`)
-  L.push(`engine: ${r.engine} | passes: ${r.passes} | pages: ${r.pages ?? '?'} | showing page ${r.page}`)
+  L.push(`engine: ${r.engine} | ${r.cached ? 'reused (nothing changed since the last build)' : `passes: ${r.passes}`} | pages: ${r.pages ?? '?'} | showing page ${r.page}`)
   if (r.toc?.expected) L.push(`toc: ${r.toc.entries ?? 0} entries`)
   if (r.aux?.length) {
     L.push(`aux: ${r.aux.map((a) => `${a.tool}${a.ok ? '' : ' FAILED'}`).join(', ')}`)
@@ -123,6 +123,10 @@ export function apply(ctx) {
           type: 'number',
           description: 'Maximum compile passes for classic engines, 1-10. Defaults to 3.',
         },
+        fresh: {
+          type: 'boolean',
+          description: 'Ignore the build cache and compile from scratch. The cache is keyed on the mtime and size of the document, every file it \\input/\\include\'s, its images and its aux files; use this only if you suspect it is out of date.',
+        },
         timeoutSeconds: {
           type: 'number',
           description: 'Per-pass time budget in seconds before the engine is killed. Defaults to 300.',
@@ -157,6 +161,7 @@ export function apply(ctx) {
             engine: args.engine,
             maxPasses: clampInt(args.maxPasses, 1, 10, 3),
             timeoutSeconds: clampInt(args.timeoutSeconds, 5, 3600, 300),
+            fresh: args.fresh === true,
           })
           return format(result)
         } catch (e) {

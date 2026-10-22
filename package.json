@@ -35,9 +35,10 @@
     "node": ">=18"
   },
   "scripts": {
-    "test": "node test/smoke.mjs && node test/scenarios.mjs",
+    "test": "node test/smoke.mjs && node test/scenarios.mjs && node test/scenarios-deep.mjs",
     "test:unit": "node test/smoke.mjs",
-    "test:scenarios": "node test/scenarios.mjs"
+    "test:scenarios": "node test/scenarios.mjs",
+    "test:deep": "node test/scenarios-deep.mjs"
   },
   "keywords": [
     "latex",

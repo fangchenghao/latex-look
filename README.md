@@ -60,18 +60,37 @@ The CLI runs the same engine as the plugin and needs no Harness, which makes it 
 
 ## Tests
 
-Both suites run on a clean checkout — they create their own fixtures and compile
+Three suites run on a clean checkout — they create their own fixtures and compile
 real documents, so expect a few minutes:
 
 ```bash
-node test/smoke.mjs      # unit level: problem parsing, PPM, raster diff, aux detection
-node test/scenarios.mjs  # 52 end-to-end cases driven through index.js
+node test/smoke.mjs           # unit level: problem parsing, PPM, raster diff, aux detection
+node test/scenarios.mjs       # 52 end-to-end cases driven through index.js
+node test/scenarios-deep.mjs  # 28 cases: multi-file papers, beamer, twocolumn, images,
+                              #   engine switching, the build cache, hostile inputs
 ```
 
-The scenario suite stubs only `@deepseek-ai/dsh-tools` (it exists solely inside
-the Harness) and calls the real `execute` with real arguments, so it exercises the
+Both end-to-end suites stub only `@deepseek-ai/dsh-tools` (it exists solely inside
+the Harness) and call the real `execute` with real arguments, so they exercise the
 argument handling and the exact text the model reads — not just `lib/core.mjs`.
 That matters: several bugs found this way lived only in the formatting layer.
+
+## Performance
+
+Verifying an edit always costs a real compile; there is no way around that. But
+browsing pages of the same build should not:
+
+| operation | 208-page book |
+|---|---|
+| first look (3 passes + glossary) | ~16 s |
+| every look after that, sources unchanged | ~0.2 s |
+
+A build is reused when the document, everything it `\input`/`\include`s (three
+levels), its `\includegraphics` files and its aux files are unchanged (mtime and
+size). A failing build is never reused. Pass `fresh: true` to bypass it.
+
+`-draftmode` on the intermediate passes was measured and rejected: it saves about
+2%, because the time is typesetting, not PDF writing. The ~16 s is TeX itself.
 
 ## The tool
 
@@ -86,7 +105,8 @@ latex_look({
   "dpi": 200,               // optional, 50-300
   "engine": "xelatex",      // optional
   "maxPasses": 3,           // optional
-  "timeoutSeconds": 300     // optional
+  "timeoutSeconds": 300,    // optional
+  "fresh": false            // optional: ignore the build cache
 })
 ```
 
@@ -120,6 +140,8 @@ Coordinates are PDF points (72/inch) with the origin at the **top-left** of the 
 - If the compile fails without writing a new PDF, the stale PDF on disk is **not** rendered and no diff is reported — the tool says so instead. Otherwise an unchanged file would read as "0% changed", i.e. "your edit did nothing".
 - `engine` accepts only the engines in this tool's list (`auto` or a known name); it is never passed to `spawn` unchecked.
 - Rendered PNGs stay under `TMPDIR/latex-look-<pid>/` because the agent opens them after the call returns. Nothing prunes that directory.
+- The build cache tracks the document, its `\input`/`\include` targets, its `\includegraphics` files and its aux files. A `.sty` that changed, or a file pulled in through a macro rather than a literal `\input{...}`, is not tracked — pass `fresh: true` if you suspect a stale build.
+- `maxPasses: 1` on a document with `\tableofcontents` is reported as an error when no `.toc` existed before, and as a warning otherwise: the `.toc` file is written *after* the TOC page is typeset, so one pass reliably produces a blank TOC page.
 
 ## License
 
