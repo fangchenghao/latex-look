@@ -17,7 +17,9 @@ const TOOL = {
     'TOC/cross-references, renders the requested page to a PNG you can open with an image reader, ' +
     'optionally resolves a text anchor or a PDF point to the exact source file and line via SyncTeX, ' +
     'and optionally diffs the page against the PDF from before this compile so you can see what your ' +
-    'last edit changed. Call it BEFORE editing (to see the problem) and AFTER editing (to verify).',
+    'last edit changed. It also reports compile errors with file:line, LaTeX/Overfull/Underfull ' +
+    'warnings, and flags a \\tableofcontents that came out EMPTY instead of silently passing. ' +
+    'Call it BEFORE editing (to see the problem) and AFTER editing (to verify).',
   inputSchema: {
     type: 'object',
     properties: {
@@ -36,6 +38,8 @@ const TOOL = {
       },
       dpi: { type: 'number', description: 'Render resolution. Default 140; use 200+ to examine fine detail.' },
       engine: { type: 'string', description: 'xelatex | lualatex | pdflatex | latexmk | tectonic. Default: auto-detect.' },
+      maxPasses: { type: 'number', description: 'Maximum passes for classic engines (pdflatex/xelatex/lualatex) before the TOC and cross-references settle. Default 3.' },
+      timeoutSeconds: { type: 'number', description: 'Per-pass time budget in seconds before the engine is killed. Default 300.' },
     },
     required: ['file'],
   },
@@ -49,13 +53,22 @@ function format(r) {
   const L = []
   L.push(`${r.ok ? 'OK' : 'FAILED'} — ${r.file}`)
   L.push(`engine: ${r.engine} | passes: ${r.passes} | pages: ${r.pages ?? '?'} | showing page ${r.page}`)
+  if (r.toc?.expected) L.push(`toc: ${r.toc.entries ?? 0} entries`)
   L.push(`image (open it with an image reader): ${r.images.after}`)
   if (r.images.before) L.push(`image before the edit: ${r.images.before}`)
   if (r.fatal) L.push(`FATAL: ${r.fatal}`)
   if (r.problems?.length) {
     L.push('')
     L.push(`PROBLEMS (${r.problems.length}):`)
-    for (const p of r.problems.slice(0, 15)) L.push(`  ${p.line ? `line ${p.line}: ` : ''}${p.message}`)
+    for (const p of r.problems.slice(0, 15)) {
+      const where = p.file ? `${p.file}${p.line ? `:${p.line}` : ''}: ` : p.line ? `line ${p.line}: ` : ''
+      L.push(`  ${where}${p.message}`)
+    }
+  }
+  if (r.warnings?.length) {
+    L.push('')
+    L.push(`WARNINGS (${r.warnings.length}${r.warnings.length > 10 ? ', first 10' : ''}):`)
+    for (const w of r.warnings.slice(0, 10)) L.push(`  ${w.message}`)
   }
   if (r.located?.length) {
     L.push('')
@@ -88,6 +101,8 @@ async function callTool(name, args) {
     compare: args.compare ?? 'previous',
     dpi: args.dpi ?? 140,
     engine: args.engine,
+    maxPasses: args.maxPasses,
+    timeoutSeconds: args.timeoutSeconds,
   })
   return { content: [{ type: 'text', text: format(result) }, { type: 'text', text: JSON.stringify(result) }], isError: !result.ok }
 }

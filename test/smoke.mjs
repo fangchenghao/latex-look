@@ -85,6 +85,43 @@ try {
     assert.equal(third.diff?.changedRatio ?? 0, 0)
   })
 
+  // ---- 5. an empty table of contents is caught -----------------------------
+  const tocDir = await mkdtemp(join(tmpdir(), 'latex-look-toc-'))
+  const tocTex = join(tocDir, 'toc.tex')
+  await writeFile(tocTex, String.raw`\documentclass[UTF8]{ctexart}
+\begin{document}
+\tableofcontents
+\section*{星号小节不编号}
+没有编号小节，目录必然是空的。
+\end{document}
+`)
+  const tocRun = await look(tocTex, { page: 1, compare: null })
+  check('flags an empty table of contents', () => {
+    assert.equal(tocRun.ok, false, 'a blank TOC must not be reported as OK')
+    assert.ok(
+      tocRun.problems.some((p) => /table of contents is EMPTY/i.test(p.message)),
+      JSON.stringify(tocRun.problems),
+    )
+  })
+  await rm(tocDir, { recursive: true, force: true })
+
+  // ---- 6. Overfull boxes are surfaced as warnings -------------------------
+  const warnDir = await mkdtemp(join(tmpdir(), 'latex-look-warn-'))
+  const warnTex = join(warnDir, 'warn.tex')
+  await writeFile(warnTex, String.raw`\documentclass[UTF8]{ctexart}
+\begin{document}
+\noindent\hbox to 1cm{XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX}
+\end{document}
+`)
+  const warnRun = await look(warnTex, { page: 1, compare: null })
+  check('surfaces Overfull warnings', () => {
+    assert.ok(
+      warnRun.warnings.some((w) => w.kind === 'overfull-hbox'),
+      JSON.stringify(warnRun.warnings),
+    )
+  })
+  await rm(warnDir, { recursive: true, force: true })
+
   console.log(failures ? `\n${failures} check(s) failed` : '\nall checks passed')
 } finally {
   await rm(dir, { recursive: true, force: true })

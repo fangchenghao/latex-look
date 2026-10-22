@@ -63,13 +63,17 @@ latex_look({
   "point": { "x": 240, "y": 610 },     // optional: PDF points → source line
   "compare": "previous",               // optional: diff against the pre-compile PDF
   "dpi": 200,                          // optional
-  "engine": "xelatex"                  // optional
+  "engine": "xelatex",                 // optional
+  "maxPasses": 3,                      // optional
+  "timeoutSeconds": 300                // optional
 })
 ```
 
 Returns:
 
-- compile status, pass count, page count, and structured `problems` (`line` + `message`)
+- compile status, pass count, page count, and structured `problems` — each with `file`, `line`, `message`
+- `warnings`: LaTeX/Package/Class warnings plus **Overfull/Underfull** boxes, the usual cause of an ugly page
+- `toc`: whether the document declares `\tableofcontents` and how many entries it actually produced (an empty TOC is reported as a problem, not a success)
 - PNG path(s) for the rendered page — hand these to an image reader
 - `located`: `{ file, line, page }` for the text anchor or point you asked about
 - `diff`: `changedRatio` plus the bounding box of the change **in PDF points**, ready to feed back into `point`

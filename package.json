@@ -1,6 +1,6 @@
 {
   "name": "latex-look",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "One tool that lets an AI agent see a LaTeX document: compile, render the page, locate the source line, and diff what your edit changed.",
   "type": "module",
   "license": "MIT",

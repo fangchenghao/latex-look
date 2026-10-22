@@ -28,12 +28,21 @@ function summary(r) {
   const L = []
   L.push(`${r.ok ? 'OK' : 'FAILED'}  ${r.file}`)
   L.push(`engine ${r.engine} · ${r.passes} pass(es) · ${r.pages ?? '?'} pages · showing page ${r.page}`)
+  if (r.toc?.expected) L.push(`toc    ${r.toc.entries ?? 0} entries`)
   L.push(`image  ${r.images.after}`)
   if (r.fatal) L.push(`FATAL  ${r.fatal}`)
   if (r.problems?.length) {
     L.push('')
     L.push(`PROBLEMS (${r.problems.length})`)
-    for (const p of r.problems.slice(0, 10)) L.push(`  ${p.line ? 'line ' + p.line + ': ' : ''}${p.message}`)
+    for (const p of r.problems.slice(0, 10)) {
+      const where = p.file ? `${p.file}${p.line ? ':' + p.line : ''}: ` : p.line ? 'line ' + p.line + ': ' : ''
+      L.push(`  ${where}${p.message}`)
+    }
+  }
+  if (r.warnings?.length) {
+    L.push('')
+    L.push(`WARNINGS (${r.warnings.length})`)
+    for (const w of r.warnings.slice(0, 8)) L.push(`  ${w.message}`)
   }
   if (r.located?.length) {
     L.push('')
@@ -68,6 +77,8 @@ Options:
                       compile; or a path to another PDF
   --dpi <n>           render resolution (default 140)
   --engine <e>        xelatex | lualatex | pdflatex | latexmk | tectonic
+  --max-passes <n>    max compile passes (default 3)
+  --timeout <s>       per-pass time budget in seconds (default 300)
   --json              machine-readable output
 
 Requires: a TeX engine, synctex, ghostscript.`)
@@ -85,6 +96,8 @@ try {
     compare: args.compare || 'previous',
     dpi: args.dpi ? Number(args.dpi) : 140,
     engine: args.engine,
+    maxPasses: args['max-passes'] ? Number(args['max-passes']) : undefined,
+    timeoutSeconds: args.timeout ? Number(args.timeout) : undefined,
   })
   if (args.json) console.log(JSON.stringify(result, null, 2))
   else console.log(summary(result))
