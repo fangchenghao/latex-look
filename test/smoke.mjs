@@ -54,7 +54,7 @@ try {
   })
 
   // ---- 2. text anchor → source line ---------------------------------------
-  const hits = await locateText(tex, first.pdf, '测试表格')
+  const { hits } = await locateText(tex, first.pdf, '测试表格')
   const srcLines = (await readFile(tex, 'utf8')).split(/\r?\n/)
   check('locates a text anchor', () => {
     assert.ok(hits.length >= 1, 'no hits')

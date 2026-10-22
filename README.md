@@ -68,7 +68,19 @@ node test/smoke.mjs           # unit level: problem parsing, PPM, raster diff, a
 node test/scenarios.mjs       # 52 end-to-end cases driven through index.js
 node test/scenarios-deep.mjs  # 28 cases: multi-file papers, beamer, twocolumn, images,
                               #   engine switching, the build cache, hostile inputs
+node test/book-scenarios.mjs  # 15 cases against a real 208-page book (164 .tex files)
 ```
+
+The book suite needs a real book and is skipped unless you point it at one:
+
+```bash
+LATEX_LOOK_BOOK=/path/to/book node test/book-scenarios.mjs
+```
+
+It is the suite that matters most, because a real book is root → `\input{main}` →
+`\input{chap1}`, with a custom `.sty`, images, a glossary and `fancyhdr` page
+furniture. It edits the copy (and reverts it) to check that removing a header rule
+is reported as a change at the top of the page: `diff 0.09%, bbox x=70 y=52 w=455 h=1`.
 
 Both end-to-end suites stub only `@deepseek-ai/dsh-tools` (it exists solely inside
 the Harness) and call the real `execute` with real arguments, so they exercise the
