@@ -140,6 +140,18 @@ const FIXTURES = {
 带美元符号和单引号的路径。
 \end{document}
 `,
+  // unbalanced parens: they terminate gs's PostScript string early, which used
+  // to make the page count come back as '?' and silently disable the range check
+  '终稿)/p.tex': String.raw`\documentclass[UTF8]{ctexart}
+\begin{document}
+右括号不配对。
+\end{document}
+`,
+  '(初稿/p.tex': String.raw`\documentclass[UTF8]{ctexart}
+\begin{document}
+左括号不配对。
+\end{document}
+`,
 }
 
 rmSync(S, { recursive: true, force: true })
@@ -238,6 +250,10 @@ const CASES = [
     (o) => o.startsWith('OK')],
   ['真实: 路径含 $ 和单引号', { file: `${S}/price $5's/p.tex`, page: 1 },
     (o) => o.startsWith('OK')],
+  ['真实: 路径含不成对右括号（页数必须正确）', { file: `${S}/终稿)/p.tex`, page: 1 },
+    (o) => o.startsWith('OK') && /pages: 1 /.test(o)],
+  ['真实: 路径含不成对左括号（页数必须正确）', { file: `${S}/(初稿/p.tex`, page: 1 },
+    (o) => o.startsWith('OK') && /pages: 1 /.test(o)],
 ]
 
 for (const [name, args, expect] of CASES) {
