@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "LaTeX Look",
+    "description": "Compile a LaTeX document, render the page to an image, and map anything you see back to its source line — so an agent can fix a layout by looking at the result instead of guessing."
+  }
+}

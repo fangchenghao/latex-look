@@ -1,18 +1,50 @@
 {
-  "name": "latex-look",
-  "version": "0.1.1",
-  "description": "One tool that lets an AI agent see a LaTeX document: compile, render the page, locate the source line, and diff what your edit changed.",
+  "name": "dsh-latex-look",
+  "version": "0.2.0",
+  "description": "DSH plugin: let an AI agent see a LaTeX document — compile it, render the page, locate the source line, and diff what an edit changed.",
   "type": "module",
   "license": "MIT",
-  "bin": {
-    "latex-look": "bin/latex-look.mjs",
-    "latex-look-mcp": "bin/mcp.mjs"
+  "exports": {
+    ".": "./index.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
   },
-  "files": ["lib", "bin", "SKILL.md", "README.md", "LICENSE"],
-  "engines": { "node": ">=18" },
+  "bin": {
+    "latex-look": "bin/latex-look.mjs"
+  },
+  "files": [
+    "index.js",
+    "lib",
+    "bin/latex-look.mjs",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "SKILL.md",
+    "README.md",
+    "LICENSE"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/dsh-tools": "*"
+  },
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "test": "node test/smoke.mjs"
   },
-  "keywords": ["latex", "mcp", "agent", "syntex", "syntex-search", "vision", "pdf", "layout"],
-  "dependencies": {}
+  "keywords": [
+    "latex",
+    "dsh",
+    "plugin",
+    "agent",
+    "synctex",
+    "vision",
+    "pdf",
+    "layout"
+  ]
 }

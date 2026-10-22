@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="LaTeX Look">
+  <rect width="64" height="64" rx="14" fill="#1f6feb"/>
+  <path d="M17 11h20l11 11v31a2 2 0 0 1-2 2H17a2 2 0 0 1-2-2V13a2 2 0 0 1 2-2z" fill="#ffffff" opacity="0.96"/>
+  <path d="M37 11v11h11z" fill="#c3d5f2"/>
+  <g fill="none" stroke="#1f6feb" stroke-width="2.6" stroke-linecap="round">
+    <path d="M22 29h13"/>
+    <path d="M22 35h9"/>
+    <path d="M22 41h11"/>
+  </g>
+  <circle cx="43" cy="44" r="9.5" fill="#ffd166" opacity="0.92"/>
+  <path d="M37.2 44c1.9-3.1 3.6-4.7 5.8-4.7s3.9 1.6 5.8 4.7c-1.9 3.1-3.6 4.7-5.8 4.7s-3.9-1.6-5.8-4.7z" fill="none" stroke="#1b1b1b" stroke-width="1.7"/>
+  <circle cx="43" cy="44" r="2.1" fill="#1b1b1b"/>
+  <path d="M50.3 51.3l6 6" fill="none" stroke="#1b1b1b" stroke-width="2.6" stroke-linecap="round"/>
+</svg>
