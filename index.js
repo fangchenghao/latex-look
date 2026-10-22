@@ -35,8 +35,8 @@ function format(r) {
   if (r.aux?.length) {
     L.push(`aux: ${r.aux.map((a) => `${a.tool}${a.ok ? '' : ' FAILED'}`).join(', ')}`)
   }
-  L.push(`image (open it with an image reader): ${r.images.after}`)
-  if (r.images.before) L.push(`image before the edit: ${r.images.before}`)
+  if (r.images?.after) L.push(`image (open it with an image reader): ${r.images.after}`)
+  if (r.images?.before) L.push(`image before the edit: ${r.images.before}`)
   if (r.fatal) L.push(`FATAL: ${r.fatal}`)
   if (r.problems?.length) {
     L.push('')
@@ -65,7 +65,7 @@ function format(r) {
     L.push('')
     L.push(
       `DIFF: ${pct}% of the page changed` +
-        (b ? ` | bbox x=${b.x} y=${b.y} w=${b.w} h=${b.h} (PDF points, origin top-left)` : ''),
+        (b ? ` | bbox x=${b.x} y=${b.y} w=${b.width} h=${b.height} (PDF points, origin top-left)` : ''),
     )
   }
   return L.join('\n')
