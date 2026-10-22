@@ -54,6 +54,9 @@ function format(r) {
   L.push(`${r.ok ? 'OK' : 'FAILED'} — ${r.file}`)
   L.push(`engine: ${r.engine} | passes: ${r.passes} | pages: ${r.pages ?? '?'} | showing page ${r.page}`)
   if (r.toc?.expected) L.push(`toc: ${r.toc.entries ?? 0} entries`)
+  if (r.aux?.length) {
+    L.push(`aux: ${r.aux.map((a) => `${a.tool}${a.ok ? '' : ' FAILED'}`).join(', ')}`)
+  }
   L.push(`image (open it with an image reader): ${r.images.after}`)
   if (r.images.before) L.push(`image before the edit: ${r.images.before}`)
   if (r.fatal) L.push(`FATAL: ${r.fatal}`)

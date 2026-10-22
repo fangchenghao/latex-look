@@ -73,7 +73,8 @@ Returns:
 
 - compile status, pass count, page count, and structured `problems` — each with `file`, `line`, `message`
 - `warnings`: LaTeX/Package/Class warnings plus **Overfull/Underfull** boxes, the usual cause of an ugly page
-- `toc`: whether the document declares `\tableofcontents` and how many entries it actually produced (an empty TOC is reported as a problem, not a success)
+- `toc`: whether the document declares `\tableofcontents` and how many entries it actually produced (an empty TOC is reported as a problem, not a success). The declaration is found across `\input`/`\include`, so a one-line root that wraps `\input{main}` still works
+- `aux`: external tools it ran — `makeglossaries`, `makeindex`, `biber`, `bibtex` — chosen from the artifacts the first pass produced, not from the root file's text, so multi-file projects that keep `\makeglossaries` in an included preamble are handled too
 - PNG path(s) for the rendered page — hand these to an image reader
 - `located`: `{ file, line, page }` for the text anchor or point you asked about
 - `diff`: `changedRatio` plus the bounding box of the change **in PDF points**, ready to feed back into `point`
