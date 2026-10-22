@@ -1,0 +1,30 @@
+# LaTeX build artifacts
+*.aux
+*.log
+*.toc
+*.out
+*.lof
+*.lot
+*.bbl
+*.blg
+*.idx
+*.ind
+*.glo
+*.glg
+*.gls
+*.ist
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.pdf
+
+# rendered previews
+*.png
+*.ppm
+
+# node
+node_modules/
+npm-debug.log*
+
+# OS
+.DS_Store
