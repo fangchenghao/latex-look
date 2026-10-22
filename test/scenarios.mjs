@@ -10,7 +10,7 @@
  * Run: node test/scenarios.mjs
  */
 import { execFileSync } from 'node:child_process'
-import { copyFileSync, cpSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { copyFileSync, cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -150,6 +150,11 @@ const FIXTURES = {
   '(初稿/p.tex': String.raw`\documentclass[UTF8]{ctexart}
 \begin{document}
 左括号不配对。
+\end{document}
+`,
+  '100%/a.tex': String.raw`\documentclass[UTF8]{ctexart}
+\begin{document}
+目录名里有百分号。
 \end{document}
 `,
 }
@@ -397,6 +402,144 @@ for (const [name, args, expect] of CASES) {
     !!bb && Number(bb[2]) < 200,
     bb ? `y=${bb[2]}` : 'no bbox',
   )
+}
+
+// --- 2c. the compared PDF usually has the same basename as the document ------
+{
+  const dir = join(S, 'collide')
+  const oldDir = join(dir, 'old')
+  mkdirSync(oldDir, { recursive: true })
+  const tex = join(dir, 'two.tex')
+  const withRule = String.raw`\documentclass[UTF8]{ctexart}
+\begin{document}
+\noindent\rule{\textwidth}{6pt}
+
+碰撞测试。
+\end{document}
+`
+  const withoutRule = String.raw`\documentclass[UTF8]{ctexart}
+\begin{document}
+
+碰撞测试。
+\end{document}
+`
+  writeFileSync(tex, withRule)
+  await call({ file: tex, page: 1 })
+  copyFileSync(join(dir, 'two.pdf'), join(oldDir, 'two.pdf')) // same basename on purpose
+  writeFileSync(tex, withoutRule)
+
+  const r = await call({ file: tex, page: 1, compare: join(oldDir, 'two.pdf') })
+  const after = /image \(open it with an image reader\): (.+)/.exec(r.out)?.[1]
+  const before = /image before the edit: (.+)/.exec(r.out)?.[1]
+  let identical = true
+  try {
+    identical = readFileSync(after).equals(readFileSync(before))
+  } catch {}
+  record(
+    'diff: compare 与文档同名的 PDF 不覆盖改后图',
+    !!after && !!before && after !== before && !identical,
+    `after=${after || 'none'} before=${before || 'none'} identical=${identical}`,
+  )
+}
+
+// --- 2d. a failed compile must not pass off the old PDF as the new page -----
+{
+  const dir = join(S, 'stale')
+  mkdirSync(dir, { recursive: true })
+  const tex = join(dir, 'doc.tex')
+  writeFileSync(tex, String.raw`\documentclass[UTF8]{ctexart}
+\begin{document}
+正常的一页。
+\end{document}
+`)
+  const good = await call({ file: tex, page: 1 })
+  // a missing document class aborts before any shipout, so no new PDF is written
+  // and doc.pdf stays exactly as the previous run left it
+  writeFileSync(tex, String.raw`\documentclass[UTF8]{nosuchclass123}
+\begin{document}
+这一版编译不过。
+\end{document}
+`)
+  const r = await call({ file: tex, page: 1 })
+  record(
+    '失败: 编译失败不拿旧 PDF 冒充当前页',
+    !r.threw && good.out.startsWith('OK') && r.out.startsWith('FAILED') &&
+      !/image \(open it/.test(r.out) && !/DIFF:/.test(r.out),
+    r.threw ? r.threw.message : r.out.split('\n').slice(0, 4).join(' | '),
+  )
+}
+
+// --- 2e. hardening regressions --------------------------------------------
+{
+  const r = await call({ file: `${S}/basic/basic.tex`, engine: 'sh' })
+  record(
+    '安全: engine 只接受白名单（sh 必须被拒绝）',
+    !r.threw && /unknown engine/.test(r.out),
+    r.threw ? r.threw.message : r.out.slice(0, 90),
+  )
+}
+{
+  const r = await call({ file: `${S}/pages/pages.tex`, page: 2.5 })
+  record(
+    '边界: page=2.5 应说明必须是整数',
+    !r.threw && /whole number/.test(r.out),
+    r.threw ? r.threw.message : r.out.split('\n')[0],
+  )
+}
+{
+  const r = await call({ file: `${S}/table/table.tex`, text: '   ' })
+  record('边界: 纯空白 text 不产生假定位', !r.threw && !/LOCATED IN SOURCE/.test(r.out),
+    r.threw ? r.threw.message : '')
+}
+{
+  const r = await call({ file: `${S}/table/table.tex`, pointX: 100, pointY: 300 })
+  record(
+    '边界: point 模式定位必须带页号',
+    !r.threw && /LOCATED IN SOURCE/.test(r.out) && /→ page \d+/.test(r.out) && !/page undefined/.test(r.out),
+    r.threw ? r.threw.message : /LOCATED IN SOURCE/.test(r.out) ? 'located' : 'not located',
+  )
+}
+{
+  const r = await call({ file: `${S}/basic/basic.tex`, pointX: 100 })
+  record('边界: 只给 pointX 应提示两个都要给', !r.threw && /pointX and pointY/.test(r.out),
+    r.threw ? r.threw.message : r.out.slice(0, 80))
+}
+{
+  const r = await call({ file: `${S}/basic/basic.tex`, compare: '/tmp/nope-does-not-exist.pdf' })
+  record('边界: compare 读不到要明说', !r.threw && /COMPARE:/.test(r.out),
+    r.threw ? r.threw.message : r.out.split('\n').slice(-2).join(' | '))
+}
+{
+  // a % in the path is the ghostscript -sOutputFile template hazard; the file NAME
+  // cannot contain one because the TeX engine itself refuses it
+  const r = await call({ file: `${S}/100%/a.tex`, page: 1 })
+  record('边界: 路径含 % 仍能正确渲染', !r.threw && r.out.startsWith('OK') && /pages: 1 /.test(r.out),
+    r.threw ? r.threw.message : r.out.split('\n').slice(0, 2).join(' | '))
+}
+{
+  // the compare PDF is the document's OWN pdf — the case the system prompt invites
+  const dir = join(S, 'selfcmp')
+  mkdirSync(dir, { recursive: true })
+  const tex = join(dir, 'self.tex')
+  writeFileSync(tex, String.raw`\documentclass[UTF8]{ctexart}
+\begin{document}
+\noindent\rule{\textwidth}{5pt}
+
+自比较。
+\end{document}
+`)
+  await call({ file: tex, page: 1 })
+  writeFileSync(tex, String.raw`\documentclass[UTF8]{ctexart}
+\begin{document}
+
+自比较。
+\end{document}
+`)
+  const r = await call({ file: tex, page: 1, compare: join(dir, 'self.pdf') })
+  const m = /DIFF: ([\d.]+)% of the page changed/.exec(r.out)
+  const ratio = m ? Number(m[1]) : null
+  record('diff: compare 指向文档自己的 PDF 仍给出真实差异', !r.threw && ratio !== null && ratio > 0.01,
+    r.threw ? r.threw.message : `changed=${ratio}%`)
 }
 
 // --- 3. concurrency --------------------------------------------------------

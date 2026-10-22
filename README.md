@@ -58,6 +58,21 @@ node bin/latex-look.mjs book.tex --page 12 --compare previous --json
 
 The CLI runs the same engine as the plugin and needs no Harness, which makes it the fast way to check a change without reloading anything.
 
+## Tests
+
+Both suites run on a clean checkout — they create their own fixtures and compile
+real documents, so expect a few minutes:
+
+```bash
+node test/smoke.mjs      # unit level: problem parsing, PPM, raster diff, aux detection
+node test/scenarios.mjs  # 52 end-to-end cases driven through index.js
+```
+
+The scenario suite stubs only `@deepseek-ai/dsh-tools` (it exists solely inside
+the Harness) and calls the real `execute` with real arguments, so it exercises the
+argument handling and the exact text the model reads — not just `lib/core.mjs`.
+That matters: several bugs found this way lived only in the formatting layer.
+
 ## The tool
 
 ```jsonc
@@ -101,6 +116,10 @@ Coordinates are PDF points (72/inch) with the origin at the **top-left** of the 
 - Multi-pass convergence is checked by hashing `.aux`/`.toc`/`.out`/… — a document with `\tableofcontents` needs ≥ 2 passes, and `latex_look` reports a problem if the TOC comes out empty.
 - Multi-file detection follows `\input`/`\include` three levels deep. `\import`/`\subfile`, unusual custom `.latexmkrc` recipes, and `\includeonly` are not understood.
 - Cross-engine pixel parity is impossible: TeX vs Word, or two different TeX engines, have different line-breaking engines. This tool verifies *your* engine's output, not another format's.
+- A `%` in a *file name* defeats the TeX engine itself (`! Emergency stop.`), so no tool can help there. A `%` in a directory name is fine.
+- If the compile fails without writing a new PDF, the stale PDF on disk is **not** rendered and no diff is reported — the tool says so instead. Otherwise an unchanged file would read as "0% changed", i.e. "your edit did nothing".
+- `engine` accepts only the engines in this tool's list (`auto` or a known name); it is never passed to `spawn` unchecked.
+- Rendered PNGs stay under `TMPDIR/latex-look-<pid>/` because the agent opens them after the call returns. Nothing prunes that directory.
 
 ## License
 

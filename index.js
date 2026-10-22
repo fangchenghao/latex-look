@@ -3,7 +3,7 @@ import { isAbsolute, resolve } from 'node:path'
 
 import { defineTool } from '@deepseek-ai/dsh-tools'
 
-import { look } from './lib/core.mjs'
+import { ENGINES, look } from './lib/core.mjs'
 
 export const name = 'dsh-latex-look'
 
@@ -38,6 +38,7 @@ function format(r) {
   if (r.images?.after) L.push(`image (open it with an image reader): ${r.images.after}`)
   if (r.images?.before) L.push(`image before the edit: ${r.images.before}`)
   if (r.fatal) L.push(`FATAL: ${r.fatal}`)
+  if (r.compareError) L.push(`COMPARE: ${r.compareError}`)
   if (r.problems?.length) {
     L.push('')
     L.push(`PROBLEMS (${r.problems.length}):`)
@@ -72,7 +73,7 @@ function format(r) {
 }
 
 export function apply(ctx) {
-  ctx.systemPrompt.section({ name: 'tool:latex-look', order: 116, text: SYSTEM_PROMPT })
+  ctx.systemPrompt.section({ name: 'tool:latex-look', order: 1100, text: SYSTEM_PROMPT })
 
   ctx.tools.register(
     defineTool({
@@ -132,22 +133,35 @@ export function apply(ctx) {
         render: (_args, value) => [{ type: 'text', text: value }],
       },
       async execute(args) {
-        const file = isAbsolute(args.file) ? args.file : resolve(args.file)
-        if (!existsSync(file)) return `latex_look: file not found: ${file}`
+        try {
+          const file = isAbsolute(args.file) ? args.file : resolve(args.file)
+          if (!existsSync(file)) return `latex_look: file not found: ${file}`
+          // Never hand a caller-supplied name to spawn() as a binary.
+          if (args.engine && args.engine !== 'auto' && !ENGINES.includes(String(args.engine))) {
+            return `latex_look: unknown engine "${args.engine}"; expected auto or one of ${ENGINES.join(', ')}`
+          }
+          const hasX = Number.isFinite(args.pointX)
+          const hasY = Number.isFinite(args.pointY)
+          if (hasX !== hasY) return 'latex_look: pointX and pointY must be given together'
 
-        const hasPoint = Number.isFinite(args.pointX) && Number.isFinite(args.pointY)
-        const at = args.text ? { text: args.text } : hasPoint ? { x: args.pointX, y: args.pointY } : null
+          const text = args.text == null ? '' : String(args.text).trim()
+          const at = text ? { text } : hasX ? { x: args.pointX, y: args.pointY } : null
 
-        const result = await look(file, {
-          page: Number.isInteger(args.page) ? args.page : undefined,
-          at,
-          compare: args.compare,
-          dpi: clampInt(args.dpi, 50, 300, 140),
-          engine: args.engine,
-          maxPasses: clampInt(args.maxPasses, 1, 10, 3),
-          timeoutSeconds: clampInt(args.timeoutSeconds, 5, 3600, 300),
-        })
-        return format(result)
+          const result = await look(file, {
+            // pass `page` through untouched: core rejects a decimal or an out of
+            // range value instead of quietly falling back to page 1
+            page: args.page,
+            at,
+            compare: args.compare,
+            dpi: clampInt(args.dpi, 50, 300, 140),
+            engine: args.engine,
+            maxPasses: clampInt(args.maxPasses, 1, 10, 3),
+            timeoutSeconds: clampInt(args.timeoutSeconds, 5, 3600, 300),
+          })
+          return format(result)
+        } catch (e) {
+          return `latex_look: ${e instanceof Error ? e.message : String(e)}`
+        }
       },
     }),
   )
