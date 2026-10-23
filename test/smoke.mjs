@@ -84,6 +84,32 @@ try {
     assert.equal(miss.verified, false)
   })
 
+  // ---- 2c. the comparison baseline follows the latest build ---------------
+  // A plain look (no compare) must still publish its snapshot; otherwise the next
+  // comparison spans the last two edits and reports a change twice as big.
+  const three = join(dir, 'three.tex')
+  const withRule = (pt) =>
+    String.raw`\documentclass[UTF8]{ctexart}
+\begin{document}
+一行文字。
+
+\noindent\rule{\textwidth}{` + pt + String.raw`pt}
+\end{document}
+`
+  await writeFile(three, withRule(3))
+  await look(three, { page: 1, compare: null })
+  await writeFile(three, withRule(5))
+  const stepA = await look(three, { page: 1, compare: 'previous' })
+  await writeFile(three, withRule(7))
+  await look(three, { page: 1, compare: null })
+  const stepB = await look(three, { page: 1, compare: 'previous' })
+  check('the baseline follows the last build, one edit at a time', () => {
+    const a = stepA.diff && stepA.diff.changedPixels
+    const b = stepB.diff && stepB.diff.changedPixels
+    assert.ok(a > 100 && b > 100, `a=${a} b=${b}`)
+    assert.ok(Math.abs(a - b) / Math.max(a, b) < 0.35, `one step=${a}px, next step=${b}px: the second diff spans more than one edit`)
+  })
+
   // ---- 3. diff detects a real edit ----------------------------------------
   const edited = BASE.replace(
     String.raw`\usepackage{booktabs}`,
