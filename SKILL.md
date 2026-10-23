@@ -74,6 +74,13 @@ or spacing, also look at one more page before claiming success.
 
 ### Traps that make an edit look like it did nothing
 
+- **"nothing changed since the last build" after you replaced a figure.** `\graphicspath`
+  used to be ignored when collecting build dependencies, so a figure that lives in
+  `images/` was not part of the cache signature. A regenerated `.pdf`/`.png` now
+  invalidates the build; if you ever see the message again right after touching an
+  image, check that the `\includegraphics` target is reachable from the `\graphicspath`
+  entry rather than from the .tex directory.
+
 The tool will honestly report "nothing changed on this page" — before you conclude the
 document is broken, suspect one of these:
 

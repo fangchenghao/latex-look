@@ -3,7 +3,11 @@
  * Run with: node test/smoke.mjs
  */
 import assert from 'node:assert/strict'
-import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
+import { execFile } from 'node:child_process'
+import { promisify } from 'node:util'
+
+const execFileAsync = promisify(execFile)
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { look, locateText, pageCarryingText } from '../lib/core.mjs'
@@ -82,6 +86,38 @@ try {
   check('keeps the guess when the string is not in the page', () => {
     assert.equal(miss.page, 1)
     assert.equal(miss.verified, false)
+  })
+
+  // ---- 2f. a replaced figure invalidates the build ------------------------
+  // \graphicspath{{figs/}} was invisible to the cache: the signature only looked for
+  // files next to the .tex, so swapping the picture rebuilt nothing and the reader was
+  // told "nothing changed" about a page whose figure had just been replaced.
+  const figDir = join(dir, 'figs')
+  await mkdir(figDir, { recursive: true })
+  const figPdf = join(figDir, 'blob.pdf')
+  const drawPdf = (color) =>
+    execFileAsync('gs', [
+      '-q', '-dNOPAUSE', '-dBATCH', '-sDEVICE=pdfwrite', `-sOutputFile=${figPdf}`,
+      '-c', `<< /PageSize [120 120] >> setpagedevice ${color} 12 12 moveto 108 108 lineto 4 setlinewidth stroke showpage`,
+    ])
+  await drawPdf('1 0 0 setrgbcolor')
+  const figTex = join(dir, 'figdoc.tex')
+  await writeFile(figTex, String.raw`\documentclass{article}
+\usepackage{graphicx}
+\graphicspath{ {figs/} }
+\begin{document}
+图在这里：
+\begin{center}\includegraphics{blob}\end{center}
+\end{document}
+`)
+  const v1 = await look(figTex, { page: 1 })
+  await drawPdf('0 0 0 setrgbcolor')
+  const v2 = await look(figTex, { page: 1, compare: 'previous' })
+  check('a replaced figure rebuilds the page instead of reusing the cache', () => {
+    assert.equal(v1.ok, true)
+    assert.equal(v2.ok, true)
+    assert.ok(!v2.cached, 'the second look reused a cache built from the old figure')
+    assert.ok(v2.diff && v2.diff.changedPixels > 0, `diff: ${JSON.stringify(v2.diff)}`)
   })
 
   // ---- 2e. a pass that never finishes says why ---------------------------
