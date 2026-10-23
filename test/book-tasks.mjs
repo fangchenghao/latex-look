@@ -64,7 +64,9 @@ const pagesOf = (out) => {
   return m ? Number(m[1]) : null
 }
 const parseDiff = (out) => {
-  const r = /DIFF: ([\d.]+)% of the page changed/.exec(out)
+  // Two shapes: "12.3% of the page changed (N px)" and "0% of the page (no pixel
+  // differs)". A case that legitimately changes nothing must not read as "no diff".
+  const r = /DIFF: ([\d.]+)% of the page(?: changed)?/.exec(out)
   const b = /bbox x=([\d.]+) y=([\d.]+) w=([\d.]+) h=([\d.]+)/.exec(out)
   return {
     ratio: r ? Number(r[1]) : null,
@@ -95,7 +97,7 @@ const boxPage = await findPage('总结：') // the framed "four equations" box i
 // the grid sits between two sentences: the first is on 135, the images are on 136
 const gridPage = await findPage('正如我们前面讨论的那样，随着输入权重变大')
 const ch1Page = await findPage('人类视觉系统是世界上众多奇迹之一')
-const tocPage = 2
+const tocPage = 3 // page 2 is the copyright page; the contents list starts on 3
 console.log(`pages found → box=${boxPage} grid=${gridPage} ch1=${ch1Page} toc=${tocPage}\n`)
 
 // --- the tasks -------------------------------------------------------------
@@ -228,15 +230,30 @@ for (const t of TASKS) {
   } finally {
     restore()
   }
+  // A case that repaginated the book (line spacing, margins, tocdepth) leaves its 207-
+  // or 226-page build on disk. The next case diffs against the current PDF, so without
+  // a rebuild here it would compare against the *previous* case's variant and report a
+  // whole-book change. One extra build, only after the few cases that repaginate.
+  const baselinePages = 208
+  if (!r.threw && pagesOf(r.out) !== null && pagesOf(r.out) !== baselinePages) {
+    await call({ page: 1 })
+  }
   const { ratio, bbox } = parseDiff(r.out)
   const pages = pagesOf(r.out)
   const ok = !r.threw && r.out.startsWith('OK') && ratio !== null && t.check({ ratio, bbox, pages })
   if (!ok) failures++
+  const why = /COMPARE: ([^\n]+)/.exec(r.out)
   record(t.say, ok,
     `${r.ms}ms · changed=${ratio === null ? 'NONE' : ratio + '%'} · ` +
-    `bbox=${bbox ? `x=${bbox.x} y=${bbox.y} w=${bbox.w} h=${bbox.h}` : 'none'} · pages=${pages} — ${t.why}`)
+    `bbox=${bbox ? `x=${bbox.x} y=${bbox.y} w=${bbox.w} h=${bbox.h}` : 'none'} · pages=${pages}` +
+    `${why ? ` · COMPARE: ${why[1].trim()}` : ''} — ${t.why}`)
   if (!ok && r.threw) console.log(`         threw: ${r.threw.message}`)
-  if (!ok && !r.out.startsWith('OK')) console.log(`         ${r.out.split('\n').slice(0, 4).join(' | ')}`)
+  // On failure, show what the tool actually said: a missing DIFF line is usually a
+  // state problem in the suite (the previous case's build), not in the tool.
+  if (!ok) {
+    const lines = r.out.split('\n').filter((l) => !/^\s*(Package|Overfull|Underfull|LaTeX|\S+:\d+:)/.test(l))
+    console.log('         >>> ' + lines.slice(0, 8).join('\n         >>> '))
+  }
 }
 
 // --- two requests at once on the same book ---------------------------------

@@ -11,6 +11,18 @@ The user often cannot read LaTeX. They see the PDF and say things like
 
 A clean compile is not evidence. `latex_look` is.
 
+## Page numbers are not what the page says
+
+`page` is the **PDF page index** (1-based): page 1 is the cover, page 208 is the last
+sheet. The number printed at the foot of the page is a different thing — front matter
+shifts it, often by ten or more, and the offset can differ between front matter
+(roman) and body (arabic).
+
+Before you edit, if the user quoted "page 41", render the page you think they mean and
+read the number printed at its foot. If it does not match, ask which they meant, or
+walk the offset from one known page. Editing the wrong page and reporting a 7% diff is
+worse than one extra question.
+
 ## The loop — non-negotiable
 
 1. **Look first.** Call `latex_look` on the page the user is talking about and
@@ -48,6 +60,23 @@ or spacing, also look at one more page before claiming success.
 | Section titles too big / too close | `titlesec` | `\titlespacing*{\section}{0pt}{2ex}{1ex}`, `\titleformat` |
 | Margins wrong | `geometry` | `\usepackage[margin=2.5cm]{geometry}` |
 | Blank pages in a book class | `\cleardoublepage`, `openright` | `\documentclass[openany]{book}` |
+
+### Traps that make an edit look like it did nothing
+
+The tool will honestly report "nothing changed on this page" — before you conclude the
+document is broken, suspect one of these:
+
+- **Leading space in a right-aligned header/footer field.** `\fancyfoot[RO]{\hspace{2em}\thepage}`
+  does not move the number: the field's box is flush right and grows to the left, so the
+  glyphs stay put. To actually shift it, change the content (`{第\thepage 页}`), the
+  alignment (`[C]`), or add a rule/box.
+- **`fancyhdr` ignores `E`/`O` parts under `oneside`** (`[LE]`, `[RO]` in a one-sided
+  document: the `E` half warns and is dropped). Setting `\leftmark` there changes nothing.
+- **A mark, not a value.** `\chapter` *clears* `\rightmark` in `book`/`report`, so pages
+  between a chapter opening and its first `\section` show an empty header with the rule
+  still drawn — define what `\chaptermark` should put in the right mark.
+- **A spacing command already in force.** `\onehalfspacing` followed by `\onehalfspacing`
+  is a no-op; check `main.tex` for the length before "increasing" it.
 
 ### Tables
 | Symptom | Fix |
@@ -102,11 +131,24 @@ you *near*. Two cases where it needs your judgement:
 
 ## Reporting
 
-Give the user:
-1. the after image (path or attachment),
-2. one sentence on **what you changed in LaTeX terms** (they will learn from it),
-3. the `bbox`/`changedRatio` as evidence the page really moved,
-4. if the fix touched the preamble, note that it applies to the whole document.
+The person reading your reply often cannot read LaTeX and is not going to open two
+PNGs and hunt for the difference. Give them, in this order:
 
-If you could not make it right, say so and show what you tried. A wrong "done"
-is much worse than an honest "this construct is not what I expected".
+1. **The before/after image** — a `compare` call writes `images.sideBySide`, one PNG
+   with the old page on the left and the new one on the right. Show that first.
+2. **One plain sentence** on what changed and **which pages** it affected, in their
+   words: "the rule above the title is gone on every chapter-opening page".
+3. **A sentence that the rest of the document still holds** ("page count unchanged,
+   nothing else moved") — silence there reads as "they did not check".
+4. The `bbox` / `changedRatio` only when they ask for evidence, or when the change is
+   too subtle to see. A reply led by "0.004% of the page, 18 px, bbox y=791" answers
+   a question nobody asked.
+
+If the user's description does not match what you see (they say "the last figure is
+centred" when it is left-aligned), do not just contradict them: they are describing
+what their eye sees. Show an image that makes the alignment visible — a crop, a
+composite with guides — and explain the *effect* they are reacting to (an empty
+right-hand column reads as "centred" even when the edges line up).
+
+If you could not make it right, say so and show what you tried. A wrong "done" is
+much worse than an honest "this construct is not what I expected".

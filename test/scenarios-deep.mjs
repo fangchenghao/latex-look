@@ -389,6 +389,44 @@ VERSION-TWO
     r.threw ? `threw ${r.threw.message}` : r.out.split('\n').slice(0, 3).join(' | '))
 }
 
+{
+  // The reader who inspired this feature put it bluntly: handing back two separate
+  // PNGs asks them to open both and hunt for the difference. The deliverable is one
+  // picture, old page on the left, new page on the right.
+  const file = `${S}/paper/root.tex`
+  const original = readFileSync(file, 'utf8')
+  await call({ file, page: 1 })
+  writeFileSync(file, original.replace('\\begin{document}', '\\begin{document}\n\\noindent\\rule{\\textwidth}{6pt}'))
+  const r = await call({ file, page: 1, compare: 'previous' })
+  writeFileSync(file, original)
+  const m = /before \| after in one image: (.+)/.exec(r.out)
+  let width = 0
+  let height = 0
+  let isPng = false
+  if (m) {
+    const buf = readFileSync(m[1].trim())
+    isPng = buf.subarray(1, 4).toString() === 'PNG'
+    width = buf.readUInt32BE(16)
+    height = buf.readUInt32BE(20)
+  }
+  record('对比: 给一张「左改前 / 右改后」的并排图', !r.threw && !!m && isPng && width > 1.5 * height,
+    `w=${width} h=${height} png=${isPng}`)
+}
+
+{
+  // Printing "0.00%" turned a page number that moved on every page into "your edit
+  // did nothing". The formatter must keep the precision the change deserves, and say
+  // how many pixels moved.
+  const f = mod.formatDiff || (await import(pathToFileURL(join(WORK, 'index.js')).href)).formatDiff
+  const tiny = f({ changedRatio: 0.000043, changedPixels: 18 })
+  const zero = f({ changedRatio: 0, changedPixels: 0 })
+  const normal = f({ changedRatio: 0.1023, changedPixels: 40000 })
+  record('显示: 微小改动不印成 0.00%，并给出像素数',
+    !!f && tiny.includes('0.004%') && tiny.includes('18 px') && !tiny.includes('0.00%') &&
+      zero.includes('no pixel differs') && normal.includes('10.23%'),
+    `tiny="${tiny}" zero="${zero}"`)
+}
+
 // --- summary ---------------------------------------------------------------
 const failed = results.filter((r) => !r.ok)
 console.log(`\n${results.length - failed.length}/${results.length} passed`)

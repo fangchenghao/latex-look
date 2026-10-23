@@ -19,12 +19,32 @@ const SYSTEM_PROMPT = [
   'it compiles the document, renders the requested page to a PNG you can open with an image reader, and maps a PDF point or a text anchor back to the exact source line.',
   'Work in the loop look → diagnose → edit → look again, passing the previous PDF as `compare` so the diff shows precisely what your edit changed.',
   'Never report a layout fix as done without having looked at the rendered page afterwards.',
+  // Two lessons from a reader who only sees the PDF: page numbers in the file are
+  // not the numbers printed on the page, and a reply full of pixel counts answers a
+  // question they did not ask.
+  '`page` is the PDF page index, not the number printed on the page: in a book the front matter shifts them by ten or more.',
+  'When the user quotes a page number, render that page first and read the number printed at its foot before you edit anything.',
+  'When reporting back, lead with the before/after image and say in one plain sentence what changed and which pages were affected;',
+  'mention pixel counts or bounding boxes only when asked for evidence.',
 ].join(' ')
 
 function clampInt(value, min, max, fallback) {
   const n = Number(value)
   if (!Number.isFinite(n)) return fallback
   return Math.max(min, Math.min(max, Math.trunc(n)))
+}
+
+/**
+ * A moved page number is a whole-page change to the reader, yet it lights up about
+ * 0.004% of the pixels: `toFixed(2)` printed "0.00%", which reads as "nothing
+ * changed" — the one message this tool must never get wrong. Keep the precision the
+ * change deserves, and say how many pixels actually differ.
+ */
+export function formatDiff(d) {
+  if (!d.changedPixels) return '0% of the page (no pixel differs)'
+  const pct = d.changedRatio * 100
+  const text = pct >= 0.01 ? pct.toFixed(2) : pct >= 0.001 ? pct.toFixed(3) : pct.toFixed(4)
+  return `${text}% of the page changed (${d.changedPixels} px)`
 }
 
 function format(r) {
@@ -37,6 +57,7 @@ function format(r) {
   }
   if (r.images?.after) L.push(`image (open it with an image reader): ${r.images.after}`)
   if (r.images?.before) L.push(`image before the edit: ${r.images.before}`)
+  if (r.images?.sideBySide) L.push(`before | after in one image: ${r.images.sideBySide}`)
   if (r.fatal) L.push(`FATAL: ${r.fatal}`)
   if (r.compareError) L.push(`COMPARE: ${r.compareError}`)
   if (r.problems?.length) {
@@ -61,11 +82,10 @@ function format(r) {
     }
   }
   if (r.diff) {
-    const pct = (r.diff.changedRatio * 100).toFixed(2)
     const b = r.diff.bbox
     L.push('')
     L.push(
-      `DIFF: ${pct}% of the page changed` +
+      `DIFF: ${formatDiff(r.diff)}` +
         (b ? ` | bbox x=${b.x} y=${b.y} w=${b.width} h=${b.height} (PDF points, origin top-left)` : ''),
     )
   }
@@ -82,7 +102,9 @@ export function apply(ctx) {
         'See what a LaTeX document actually looks like. Compiles the main .tex with enough passes for the table of contents ' +
         'and cross-references to settle, renders the requested page to a PNG that the image reader can open, optionally resolves ' +
         'a text anchor or a PDF point to the exact source file and line via SyncTeX, and optionally diffs the page against the ' +
-        'previous PDF so you can see what an edit changed. Also runs makeglossaries/makeindex/biber when the document needs them, ' +
+        'previous PDF so you can see what an edit changed (both pages in one side-by-side image). ' +
+        'Note that `page` is the PDF page index, not the number printed on the page. ' +
+        'Also runs makeglossaries/makeindex/biber when the document needs them, ' +
         'and reports structured problems: file:line errors, LaTeX and Overfull/Underfull warnings, and an empty table of contents.',
       parameters: {
         file: {

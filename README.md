@@ -66,10 +66,10 @@ real documents, so expect a few minutes:
 ```bash
 node test/smoke.mjs           # unit level: problem parsing, PPM, raster diff, aux detection
 node test/scenarios.mjs       # 52 end-to-end cases driven through index.js
-node test/scenarios-deep.mjs  # 28 cases: multi-file papers, beamer, twocolumn, images,
+node test/scenarios-deep.mjs  # 29 cases: multi-file papers, beamer, twocolumn, images,
                               #   engine switching, the build cache, hostile inputs
 node test/book-scenarios.mjs  # 15 cases against a real 208-page book (164 .tex files)
-node test/book-tasks.mjs      # 17 real editing tasks on the same book (see below)
+node test/book-tasks.mjs      # 18 real editing tasks on the same book (see below)
 ```
 
 The book suite needs a real book and is skipped unless you point it at one:
@@ -110,6 +110,17 @@ Both end-to-end suites stub only `@deepseek-ai/dsh-tools` (it exists solely insi
 the Harness) and call the real `execute` with real arguments, so they exercise the
 argument handling and the exact text the model reads — not just `lib/core.mjs`.
 That matters: several bugs found this way lived only in the formatting layer.
+
+## One picture, not two
+
+A `compare` call writes three images, but the one to show the user is
+`images.sideBySide`: the page before on the left, the page after on the right, one
+PNG. Finding the difference by eye across two separate files is the hardest part of
+the job for someone who cannot read the source.
+
+Writing a PNG needs no dependency — a signature, `IHDR`, one zlib `IDAT`, `IEND`, and
+`node:zlib` supplies the compression. The composite costs about 0.3 s on an A4 page at
+140 dpi, and only runs when there is something to compare.
 
 ## Performance
 
@@ -181,6 +192,11 @@ Coordinates are PDF points (72/inch) with the origin at the **top-left** of the 
 
 ## Honest limits
 
+- **`page` is the PDF page index, not the number printed on the page.** In the test
+  book those differ by 10 (printed 130 = index 140), and the offset is different again
+  in the roman-numbered front matter. PDF page labels would let the tool translate, but
+  LaTeX only writes them on request, so an agent that takes a page number from a user
+  must confirm it against the rendered page first.
 - SyncTeX resolves to the *nearest text position*. A decorative rule drawn by a page style (`\pagestyle{headings}`, `fancyhdr`) has no glyph of its own, so it resolves to nearby text. Combine the coordinates with LaTeX knowledge — that is what `SKILL.md` is for.
 - Multi-pass convergence is checked by hashing `.aux`/`.toc`/`.out`/… — a document with `\tableofcontents` needs ≥ 2 passes, and `latex_look` reports a problem if the TOC comes out empty.
 - Multi-file detection follows `\input`/`\include` three levels deep. `\import`/`\subfile`, unusual custom `.latexmkrc` recipes, and `\includeonly` are not understood.

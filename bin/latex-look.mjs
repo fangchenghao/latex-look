@@ -52,11 +52,14 @@ function summary(r) {
   }
   if (r.diff) {
     L.push('')
-    if (!r.diff.changedRatio) L.push('DIFF   nothing changed on this page')
+    if (!r.diff.changedPixels) L.push('DIFF   nothing changed on this page')
     else {
-      L.push(`DIFF   ${(r.diff.changedRatio * 100).toFixed(2)}% of the page changed`)
+      const pct = r.diff.changedRatio * 100
+      const shown = pct >= 0.01 ? pct.toFixed(2) : pct >= 0.001 ? pct.toFixed(3) : pct.toFixed(4)
+      L.push(`DIFF   ${shown}% of the page changed (${r.diff.changedPixels} px)`)
       if (r.diff.bbox) L.push(`       bbox x=${r.diff.bbox.x} y=${r.diff.bbox.y} w=${r.diff.bbox.width} h=${r.diff.bbox.height} (points)`)
       if (r.images.before) L.push(`before ${r.images.before}`)
+      if (r.images.sideBySide) L.push(`both   ${r.images.sideBySide}`)
     }
   }
   return L.join('\n')
