@@ -79,10 +79,15 @@ try {
     assert.ok(second.diff.bbox.y < 200, `bbox y=${second.diff.bbox.y} not in header`)
   })
 
-  // ---- 4. an unchanged recompile reports zero diff -------------------------
+  // ---- 4. a cached re-look repeats the SAME before/after -------------------
+  // The before-snapshot belongs to the build, not to one call: an agent that just
+  // edited something inspects several pages of it, and every look after the first
+  // is served from the cache.
   const third = await look(tex, { page: 1, compare: 'previous' })
-  check('idempotent when nothing changes', () => {
-    assert.equal(third.diff?.changedRatio ?? 0, 0)
+  check('a cached re-look reports the same diff, not zero', () => {
+    assert.equal(third.cached, true, 'expected the build to be reused')
+    assert.equal(third.diff?.changedRatio, second.diff?.changedRatio)
+    assert.ok(third.diff.changedRatio > 0)
   })
 
   // ---- 5. an empty table of contents is caught -----------------------------

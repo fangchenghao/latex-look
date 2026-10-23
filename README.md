@@ -69,6 +69,7 @@ node test/scenarios.mjs       # 52 end-to-end cases driven through index.js
 node test/scenarios-deep.mjs  # 28 cases: multi-file papers, beamer, twocolumn, images,
                               #   engine switching, the build cache, hostile inputs
 node test/book-scenarios.mjs  # 15 cases against a real 208-page book (164 .tex files)
+node test/book-tasks.mjs      # 17 real editing tasks on the same book (see below)
 ```
 
 The book suite needs a real book and is skipped unless you point it at one:
@@ -77,10 +78,33 @@ The book suite needs a real book and is skipped unless you point it at one:
 LATEX_LOOK_BOOK=/path/to/book node test/book-scenarios.mjs
 ```
 
-It is the suite that matters most, because a real book is root → `\input{main}` →
-`\input{chap1}`, with a custom `.sty`, images, a glossary and `fancyhdr` page
-furniture. It edits the copy (and reverts it) to check that removing a header rule
-is reported as a change at the top of the page: `diff 0.09%, bbox x=70 y=52 w=455 h=1`.
+These two suites matter most, because a real book is root → `\input{main}` →
+`\input{chap1}`, with a custom `.sty`, 181 figures, a glossary and `fancyhdr` page
+furniture.
+
+`book-scenarios` checks the machinery on that book. `book-tasks` checks the
+*requests*: each case is a sentence a user would say, applied to the copy and then
+verified the way an agent verifies it — look, diff against the previous build, and
+confirm the change is where the edit acts:
+
+| user says | measured |
+|---|---|
+| 把页眉那条横线去掉 | `0.09%`, bbox `y=52 h=1` (a thin band at the top) |
+| 页眉的线太细，加粗到 2pt | `0.27%`, bbox `y=52 h=3` |
+| 链接的蓝色去掉 | `0.29%`, bbox over the contents page |
+| 行距调大一点 | `10.53%`, 208 → 248 pages |
+| 表格行距加大 | `9.07%` |
+| chap2 那个总结框太窄，放宽 | `7.39%` |
+| chap1 那个图太小，放大 | `10.57%` |
+| chap4 那组图对齐时右边空着 | `8.81%` |
+| 段落首行不要缩进 | `14.07%` |
+| 页边距太窄 | `13.32%`, 208 → 226 pages |
+| 正文字号改成 12pt | `11.63%`, 208 → 226 pages |
+| 目录只显示到章 | `2.19%`, 208 → 207 pages |
+
+Nothing in these cases is asserted about how the change *looks* — that is what the
+image is for. The assertions are: the build succeeded, a diff exists, and its
+bounding box is in the region the edit acts on.
 
 Both end-to-end suites stub only `@deepseek-ai/dsh-tools` (it exists solely inside
 the Harness) and call the real `execute` with real arguments, so they exercise the
@@ -94,12 +118,25 @@ browsing pages of the same build should not:
 
 | operation | 208-page book |
 |---|---|
-| first look (3 passes + glossary) | ~16 s |
+| first look (3 passes + glossary) | ~17 s |
 | every look after that, sources unchanged | ~0.2 s |
 
 A build is reused when the document, everything it `\input`/`\include`s (three
 levels), its `\includegraphics` files and its aux files are unchanged (mtime and
 size). A failing build is never reused. Pass `fresh: true` to bypass it.
+
+Two consequences worth knowing:
+
+- **The before-snapshot belongs to the build, not to the call.** After an edit, the
+  first look records what the page looked like before it; every later look at that
+  same build reuses the same snapshot, so an agent inspecting three pages of its
+  own edit still sees a diff on the second and third. (It used to be consumed by
+  the first call, which is exactly the wrong way round.)
+- **One build per document at a time.** Two compiles of the same file share its
+  `.aux`/`.toc` and corrupt each other — racing two processes on the 208-page book,
+  one of them died with no error message at all. Builds are now serialised in-process
+  by a promise queue and across processes by a lock file that carries the owner's
+  PID, so a killed run cannot wedge the document.
 
 `-draftmode` on the intermediate passes was measured and rejected: it saves about
 2%, because the time is typesetting, not PDF writing. The ~16 s is TeX itself.

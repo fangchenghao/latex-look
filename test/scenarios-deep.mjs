@@ -286,8 +286,11 @@ VERSION-TWO
   const file = `${S}/change/change.tex`
   await call({ file, page: 1 })
   const r = await call({ file, page: 1, compare: 'previous' })
-  record('缓存: 命中时不给假的 0% diff，而是说明原因',
-    !r.threw && !/DIFF: 0\.00%/.test(r.out) && /unchanged|nothing was recompiled/i.test(r.out),
+  // A cached call reports the comparison the build itself produced (the snapshot is
+  // kept per document, so looking at a second page still shows the edit), and when
+  // no earlier build was recorded it says so. What it must never do is invent 0%.
+  record('缓存: 命中时给真对比或说明原因，绝不给假的 0%',
+    !r.threw && !/DIFF: 0\.00%/.test(r.out) && (/DIFF: [\d.]+%/.test(r.out) || /COMPARE:/.test(r.out)),
     r.out.split('\n').slice(-3).join(' | '))
 }
 {
