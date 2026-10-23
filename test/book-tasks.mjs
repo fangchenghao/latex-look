@@ -12,6 +12,10 @@
  * bounding box is where the edit acts.
  *
  *   LATEX_LOOK_BOOK=/path/to/book node test/book-tasks.mjs
+ *
+ * Run it against an UNEDITED copy. Half the cases assert where a known thing
+ * sits (page 206, printed 196), and once the copy has been edited those pages
+ * legitimately move — the suite then fails on pagination, not on the tool.
  */
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'

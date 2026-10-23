@@ -70,6 +70,7 @@ node test/scenarios-deep.mjs  # 29 cases: multi-file papers, beamer, twocolumn, 
                               #   engine switching, the build cache, hostile inputs
 node test/book-scenarios.mjs  # 15 cases against a real 208-page book (164 .tex files)
 node test/book-tasks.mjs      # 18 real editing tasks on the same book (see below)
+LATEX_LOOK_BOOK=/pristine/copy node test/book-tasks.mjs   # point it at an unedited copy
 ```
 
 The book suite needs a real book and is skipped unless you point it at one:
