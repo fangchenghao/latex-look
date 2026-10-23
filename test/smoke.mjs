@@ -84,6 +84,30 @@ try {
     assert.equal(miss.verified, false)
   })
 
+  // ---- 2e. a pass that never finishes says why ---------------------------
+  // ulem's \uline around a link inside any tabular loops the engine forever. Reported
+  // as "produced no PDF", the user learns nothing and the assistant retries blindly.
+  const loopTex = join(dir, 'loop.tex')
+  await writeFile(loopTex, String.raw`\documentclass{article}
+\usepackage{hyperref}
+\usepackage{tabularx}
+\usepackage[normalem]{ulem}
+\let\nndlhref\href
+\DeclareRobustCommand{\href}[2]{\nndlhref{#1}{\uline{#2}}}
+\begin{document}
+\begin{tabularx}{0.8\textwidth}{lX}
+\href{https://example.com/1}{一个链接} & 说明 \\
+\end{tabularx}
+\end{document}
+`)
+  const hung = await look(loopTex, { page: 1, compare: null, timeoutSeconds: 6 })
+  check('a compile that never finishes names the loop, not "no PDF"', () => {
+    assert.equal(hung.ok, false)
+    const first = (hung.problems[0] || {}).message || ''
+    assert.match(first, /did not finish within/)
+    assert.match(first, /infinite loop/i)
+  })
+
   // ---- 2c. the comparison baseline follows the latest build ---------------
   // A plain look (no compare) must still publish its snapshot; otherwise the next
   // comparison spans the last two edits and reports a change twice as big.

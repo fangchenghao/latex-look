@@ -61,6 +61,17 @@ or spacing, also look at one more page before claiming success.
 | Margins wrong | `geometry` | `\usepackage[margin=2.5cm]{geometry}` |
 | Blank pages in a book class | `\cleardoublepage`, `openright` | `\documentclass[openany]{book}` |
 
+### When the build itself stops cooperating
+
+- **A look that never returns.** A pass is killed at `timeoutSeconds` (default 120) and
+  the tool now says which pass and why. The usual cause is a macro loop, not a slow
+  machine: `ulem`'s `\uline` wrapped around an `\href` **inside any tabular** hangs the
+  engine forever (tested with `tabular`, `tabularx` and `multirow`). If the user asks to
+  underline all links, say what it costs instead of silently rewriting 181 call sites.
+- **"It compiles but the page is unchanged".** Check that the file you edited is within
+  three `\input` levels of the root, and that the edit is not shadowed by a duplicate
+  definition later in the preamble.
+
 ### Traps that make an edit look like it did nothing
 
 The tool will honestly report "nothing changed on this page" — before you conclude the

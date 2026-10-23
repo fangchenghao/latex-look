@@ -86,7 +86,7 @@ Options:
   --engine <e>        xelatex | lualatex | pdflatex | latexmk | tectonic
   --max-passes <n>    max compile passes (default 3)
   --fresh             ignore the build cache and recompile
-  --timeout <s>       per-pass time budget in seconds (default 300)
+  --timeout <s>       per-pass time budget in seconds (default 120)
   --json              machine-readable output
 
 Requires: a TeX engine, synctex, ghostscript.`)

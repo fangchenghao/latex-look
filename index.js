@@ -188,7 +188,7 @@ export function apply(ctx) {
             dpi: clampInt(args.dpi, 50, 300, 140),
             engine: args.engine,
             maxPasses: clampInt(args.maxPasses, 1, 10, 3),
-            timeoutSeconds: clampInt(args.timeoutSeconds, 5, 3600, 300),
+            timeoutSeconds: clampInt(args.timeoutSeconds, 5, 3600, 120),
             fresh: args.fresh === true,
           })
           return format(result)
