@@ -78,7 +78,13 @@ function format(r) {
     L.push('LOCATED IN SOURCE:')
     for (const h of r.located.slice(0, 8)) {
       const y = typeof h.y === 'number' ? ` y=${h.y.toFixed(1)}` : ''
-      L.push(`  ${h.file}:${h.line} → page ${h.page}${y}`)
+      // Say when SyncTeX was overruled: a silently corrected page hides a real
+      // limitation of the source→PDF mapping.
+      const fixed =
+        h.pageVerified && h.synctexPage && h.synctexPage !== h.page
+          ? ` (SyncTeX said ${h.synctexPage}; the page text says otherwise)`
+          : ''
+      L.push(`  ${h.file}:${h.line} → page ${h.page}${y}${fixed}`)
     }
   }
   if (r.diff) {

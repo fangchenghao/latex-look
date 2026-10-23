@@ -111,6 +111,14 @@ the Harness) and call the real `execute` with real arguments, so they exercise t
 argument handling and the exact text the model reads — not just `lib/core.mjs`.
 That matters: several bugs found this way lived only in the formatting layer.
 
+## The page SyncTeX names is not always the page it is on
+
+SyncTeX records the page a box was **built** on. A float that TeX moves to the next
+page gets the previous page's number, so `text: "Version 0.5"` used to answer
+"page 205" for a table that ships on 206 — and page 205 is a different chapter.
+The tool now checks the PDF's own text layer (`gs -sDEVICE=txtwrite`, ~0.12 s a page)
+and looks one and two pages either side; when it overrules SyncTeX it says so.
+
 ## One picture, not two
 
 A `compare` call writes three images, but the one to show the user is

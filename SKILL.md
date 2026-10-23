@@ -82,6 +82,8 @@ document is broken, suspect one of these:
 | Symptom | Fix |
 |---|---|
 | Wants a **three-line table** (三线表) | `\usepackage{booktabs}`; replace `\hline` with `\toprule`/`\midrule`/`\bottomrule`; delete all `|` from the column spec |
+| Already numerically correct, but a rule between **every** row ("like ruled paper") | Delete the per-row `\midrule`s and put `\addlinespace` in their place — removing the rule alone leaves the rows touching |
+| A list of names/dates stranded on one line with ragged gaps | Give every entry the same slot: `\begin{tabular}{@{}l@{}l@{}}` with `\makebox[3.1cm][c]{…}` in each cell, wrapped over 2–3 rows. Fixed `p{}` columns with left alignment leave the *gaps* ragged, which is the thing the user complained about |
 | Rows too tall / too cramped | `\renewcommand{\arraystretch}{1.3}` |
 | Table wider than the page | `\usepackage{tabularx}` with `X` columns, or `\resizebox{\textwidth}{!}{...}`, or `\adjustbox{max width=\textwidth}` |
 | Text too big inside the table | wrap in `{\small ...}` or `\footnotesize` before `\begin{tabular}` |

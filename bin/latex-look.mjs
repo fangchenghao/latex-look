@@ -48,7 +48,10 @@ function summary(r) {
   if (r.located?.length) {
     L.push('')
     L.push('LOCATED')
-    for (const h of r.located.slice(0, 5)) L.push(`  ${h.file}:${h.line}  → p${h.page} x=${h.x?.toFixed?.(1)} y=${h.y?.toFixed?.(1)}`)
+    for (const h of r.located.slice(0, 5)) {
+      const fixed = h.pageVerified && h.synctexPage && h.synctexPage !== h.page ? `  (synctex: p${h.synctexPage})` : ''
+      L.push(`  ${h.file}:${h.line}  → p${h.page} x=${h.x?.toFixed?.(1)} y=${h.y?.toFixed?.(1)}${fixed}`)
+    }
   }
   if (r.diff) {
     L.push('')

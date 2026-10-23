@@ -6,7 +6,7 @@ import assert from 'node:assert/strict'
 import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { look, locateText } from '../lib/core.mjs'
+import { look, locateText, pageCarryingText } from '../lib/core.mjs'
 
 const dir = await mkdtemp(join(tmpdir(), 'latex-look-test-'))
 const tex = join(dir, 'demo.tex')
@@ -60,6 +60,28 @@ try {
     assert.ok(hits.length >= 1, 'no hits')
     const line = srcLines[hits[0].line - 1] || ''
     assert.ok(line.includes('测试表格'), `line ${hits[0].line} does not contain the anchor: ${line}`)
+  })
+
+  // ---- 2b. which page does the text really live on? -----------------------
+  const two = join(dir, 'two.tex')
+  await writeFile(two, String.raw`\documentclass[UTF8]{ctexart}
+\begin{document}
+第一页的普通文字。
+
+\clearpage
+第二页的普通文字。
+\end{document}
+`)
+  const built = await look(two, { page: 1, compare: null })
+  const where = await pageCarryingText(built.pdf, 1, '第二页的普通文字')
+  check('text layer overrules a wrong page guess', () => {
+    assert.equal(where.page, 2, `got page ${where.page}`)
+    assert.equal(where.verified, true)
+  })
+  const miss = await pageCarryingText(built.pdf, 1, '这一段根本不存在')
+  check('keeps the guess when the string is not in the page', () => {
+    assert.equal(miss.page, 1)
+    assert.equal(miss.verified, false)
   })
 
   // ---- 3. diff detects a real edit ----------------------------------------

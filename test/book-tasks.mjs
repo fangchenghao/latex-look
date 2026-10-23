@@ -256,6 +256,17 @@ for (const t of TASKS) {
   }
 }
 
+// --- a float that TeX moved: SyncTeX names the page before it --------------
+{
+  // The revision-history table ships on page 206; SyncTeX records 205, because that
+  // is the page being built when the float box is constructed. Following 205 renders
+  // the acknowledgements and "the table is gone".
+  const r = await call({ text: 'Version 0.5' })
+  const m = /→ page (\d+)/.exec(r.out)
+  record('浮动表格：按文字定位落到它真正所在的页',
+    !r.threw && m && Number(m[1]) === 206, `reported=${m ? m[1] : 'none'}`)
+}
+
 // --- two requests at once on the same book ---------------------------------
 {
   const [x, y] = await Promise.all([
