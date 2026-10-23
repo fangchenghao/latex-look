@@ -61,6 +61,25 @@ or spacing, also look at one more page before claiming success.
 | Margins wrong | `geometry` | `\usepackage[margin=2.5cm]{geometry}` |
 | Blank pages in a book class | `\cleardoublepage`, `openright` | `\documentclass[openany]{book}` |
 
+### When the reader's premise is wrong
+
+Readers describe a page relative to whatever they can see. One insisted a
+figure "touches both margins"; measured, it was 311pt wide in a 455pt column,
+and the thing reaching both edges was the header rule above it. Another
+complained that code lines were ragged; a per-line scan of the left edge found
+exactly three indentation levels, all pixel-identical.
+
+Do not argue, and do not silently do the wrong thing either:
+
+1. **Draw the reference on the page.** Render it, dash the text-block edges in
+   red, box the element in question in green, and show that image. The
+   disagreement usually dissolves in one look.
+2. **Do the part that is real.** That figure did waste half its height on an
+   empty y-range — cropping the axis fixed the page the reader was cross about,
+   even though the sentence they wrote was wrong.
+3. **Quote the numbers in the units they used** (mm at the dpi they measured at)
+   and let them withdraw the wrong half themselves.
+
 ### When the build itself stops cooperating
 
 - **A look that never returns.** A pass is killed at `timeoutSeconds` (default 120) and
