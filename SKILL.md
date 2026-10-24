@@ -53,6 +53,11 @@ or spacing, also look at one more page before claiming success.
 as the reader turns the pages; a float lands after any inline sibling that follows it
 in the source. `sequence: "图"` reports every inversion with both page numbers.
 
+7d. **A hole that survived the float is still a hole.** Floating moves the empty
+space, it does not delete it: if the text after the figure is short, the page still
+stops short. `audit: true` names the figure that opens the next page
+(`nextPageOpensWith`), which is the one to float next.
+
 7b. **Audit, when the edit touched more than one page.** A request like "give every
 figure a caption" is fulfilled per figure and can still leave ten pages broken:
 the caption adds height, the figure no longer fits, and it jumps to the next page,
@@ -165,6 +170,7 @@ document is broken, suspect one of these:
 | Jumped to another page | `[htbp]` + `\FloatBarrier`; or `\usepackage{float}` + `[H]` |
 | Adding a caption pushed a near-full-page figure off the page, leaving half a page blank | the figure was already as tall as the text block, so a few millimetres of caption cannot fit above it. Wrapping it in `minipage` makes it unbreakable. Make that figure a float (`\begin{figure}[!tbp]`) so the text after it fills the page and the figure starts the next one |
 | Caption orphaned on the next page | wrap figure+caption in one `minipage` — a caption is not tied to its graphic by default |
+| A figure sits above the chapter title on a chapter's first page | a top float won the opening page. `\let\origchapter\chapter\renewcommand{\chapter}{\suppressfloats[t]\origchapter}` (no `@` in the name, or wrap it in `\makeatletter`) forbids top floats on every chapter opening, now and for chapters added later |
 | Numbers run backwards: 图 3-4 on one page, 图 3-3 on the next | you floated one object but left its numbered neighbours inline. A float is placed later than an inline object that follows it in the source, and the reader turns the page to see 3-4 before 3-3. Floats of the same class keep their relative order, so float the **whole run** — never a float mixed into inline siblings. Check with `latex_look --sequence 图` after any change to how objects are placed |
 | Too much space around it | `\setlength{\intextsep}{6pt}`, `\setlength{\textfloatsep}{10pt}` |
 
