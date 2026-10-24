@@ -74,7 +74,11 @@ function format(r) {
     if (r.audit.error) L.push(`AUDIT FAILED: ${r.audit.error}`)
     else if (!r.audit.hadBaseline) {
       L.push('')
+      const why = r.audit.repaginatedFrom
+        ? `the baseline was a ${r.audit.repaginatedFrom}-page build and this one has ${r.audit.pages}: the document repaginated, so findings are matched by the text at the break, not by page number`
+        : `no baseline yet`
       L.push(`AUDIT (baseline recorded: ${r.audit.findings.length} page(s) currently stop short, ${r.audit.sectionEnds} of them at a chapter or section end)`)
+      L.push(`      ${why} — nothing is reported as new until the next build to compare against`)
       L.push('      the next audit will only report what THIS build changed')
     } else if (!r.audit.newFindings.length) {
       L.push('')

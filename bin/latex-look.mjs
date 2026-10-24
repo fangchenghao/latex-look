@@ -45,7 +45,12 @@ function summary(r) {
       const n = r.audit.findings.length
       const fresh = r.audit.newFindings.length
       L.push('')
-      if (!r.audit.hadBaseline) L.push(`AUDIT  baseline recorded: ${n} page(s) stop short (${r.audit.sectionEnds} of them a chapter or section end)`)
+      if (!r.audit.hadBaseline) {
+        const why = r.audit.repaginatedFrom
+          ? ` (baseline: ${r.audit.repaginatedFrom} pages, now ${r.audit.pages} — matched by the text at each break, not by page number)`
+          : ''
+        L.push(`AUDIT  baseline recorded: ${n} page(s) stop short (${r.audit.sectionEnds} of them a chapter or section end)${why}`)
+      }
       else if (!fresh) L.push(`AUDIT  nothing new: still the same ${n} page(s) stop short, none introduced by this build`)
       else L.push(`AUDIT  ${fresh} NEW finding(s) since the last run (${n} in total):`)
       for (const f of (fresh ? r.audit.newFindings : []).slice(0, 8)) {
