@@ -59,6 +59,24 @@ function format(r) {
   if (r.images?.before) L.push(`image before the edit: ${r.images.before}`)
   if (r.images?.sideBySide) L.push(`before | after in one image: ${r.images.sideBySide}`)
   if (r.fatal) L.push(`FATAL: ${r.fatal}`)
+  if (r.audit) {
+    if (r.audit.error) L.push(`AUDIT FAILED: ${r.audit.error}`)
+    else if (!r.audit.hadBaseline) {
+      L.push('')
+      L.push(`AUDIT (baseline recorded: ${r.audit.findings.length} page(s) currently stop short, ${r.audit.sectionEnds} of them at a chapter or section end)`)
+      L.push('      the next audit will only report what THIS build changed')
+    } else if (!r.audit.newFindings.length) {
+      L.push('')
+      L.push(`AUDIT: nothing new — the same ${r.audit.findings.length} page(s) stop short, none introduced by this build`)
+    } else {
+      L.push('')
+      L.push(`AUDIT: ${r.audit.newFindings.length} NEW layout finding(s) introduced by this build (of ${r.audit.findings.length} in total)`)
+      for (const f of r.audit.newFindings.slice(0, 10)) {
+        L.push(`  ${f.kind} page ${f.page}: ${f.mm.toFixed(0)}mm — ${f.detail}`)
+        if (f.lastLine) L.push(`      the page ends with: …${f.lastLine.slice(-40)}`)
+      }
+    }
+  }
   if (r.compareError) L.push(`COMPARE: ${r.compareError}`)
   if (r.problems?.length) {
     L.push('')
@@ -155,6 +173,19 @@ export function apply(ctx) {
           type: 'boolean',
           description: 'Ignore the build cache and compile from scratch. The cache is keyed on the mtime and size of the document, every file it \\input/\\include\'s, its images and its aux files; use this only if you suspect it is out of date.',
         },
+        audit: {
+          type: 'boolean',
+          description:
+            'Audit every page for layout regressions, and compare the result with the baseline recorded by the previous audit ' +
+            "of this document. Reports pages that stop short of the deepest text in the book, pages that start low, and nearly " +
+            "empty pages — but only the ones that were NOT there before, i.e. the ones this edit introduced. Run it after a " +
+            "change to a whole class of pages (captions, header, spacing): a request can be fulfilled and still leave other pages " +
+            "broken, and that is exactly what this catches.",
+        },
+        auditBlankMm: {
+          type: 'number',
+          description: 'How deep a hole at the foot of a page must be (mm) before the audit calls it one. Defaults to 30.',
+        },
         timeoutSeconds: {
           type: 'number',
           description: 'Per-pass time budget in seconds before the engine is killed. Defaults to 300.',
@@ -190,6 +221,8 @@ export function apply(ctx) {
             maxPasses: clampInt(args.maxPasses, 1, 10, 3),
             timeoutSeconds: clampInt(args.timeoutSeconds, 5, 3600, 120),
             fresh: args.fresh === true,
+            audit: args.audit === true,
+            auditBlankMm: clampInt(args.auditBlankMm, 5, 200, 30),
           })
           return format(result)
         } catch (e) {

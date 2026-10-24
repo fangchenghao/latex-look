@@ -48,6 +48,16 @@ worse than one extra question.
 **Preamble edits affect every page.** After changing page furniture, typography,
 or spacing, also look at one more page before claiming success.
 
+7b. **Audit, when the edit touched more than one page.** A request like "give every
+figure a caption" is fulfilled per figure and can still leave ten pages broken:
+the caption adds height, the figure no longer fits, and it jumps to the next page,
+leaving a hole. No single page shows that. Pass `audit: true` to `latex_look`:
+it measures every page and reports only findings **that were not there in the
+previous audit of the same document** — so a first run records a baseline and
+every later run says exactly what this build broke. Anything it lists is yours to
+fix or to tell the reader about; silence means the change did not disturb the rest
+of the book.
+
 ## Playbook: symptom → cause → fix
 
 ### Page furniture
@@ -93,6 +103,19 @@ Do not argue, and do not silently do the wrong thing either:
 
 ### Traps that make an edit look like it did nothing
 
+- **Numbers that are typed, not counted.** If a document writes `\tag{12}` or
+  `\setcounter{equation}{12}` by hand, no amount of `\theequation` /
+  `\numberwithin` changes the printed number, and the next formula keeps the
+  hand-written value too. `grep -c '\\tag{' *.tex` before touching the counter.
+- **A page-size box that cannot be shrunk.** `Overfull \hbox (1.9pt)` in a table
+  of contents is usually not the dot leaders: `book.cls` reserves `\@pnumwidth`
+  (1.55em) for the page number, and bold three-digit numbers need more. Fix with
+  `\makeatletter\renewcommand{\@pnumwidth}{2.3em}\makeatother`, not by
+  shortening the leaders.
+- **A package that lists itself.** `tocbibind` puts the table of contents into the
+  table of contents. `\usepackage[nottoc]{tocbibind}` keeps the index and the
+  glossary entries but drops that one line.
+
 - **"nothing changed since the last build" after you replaced a figure.** `\graphicspath`
   used to be ignored when collecting build dependencies, so a figure that lives in
   `images/` was not part of the cache signature. A regenerated `.pdf`/`.png` now
@@ -135,6 +158,8 @@ document is broken, suspect one of these:
 | Too big / too small | `\includegraphics[width=0.8\textwidth]{...}` (prefer this over `scale=`) |
 | Overflows the margin | `width=\linewidth`, or `\adjustbox{max width=\linewidth}` |
 | Jumped to another page | `[htbp]` + `\FloatBarrier`; or `\usepackage{float}` + `[H]` |
+| Adding a caption pushed a near-full-page figure off the page, leaving half a page blank | the figure was already as tall as the text block, so a few millimetres of caption cannot fit above it. Wrapping it in `minipage` makes it unbreakable. Make that figure a float (`\begin{figure}[!tbp]`) so the text after it fills the page and the figure starts the next one |
+| Caption orphaned on the next page | wrap figure+caption in one `minipage` — a caption is not tied to its graphic by default |
 | Too much space around it | `\setlength{\intextsep}{6pt}`, `\setlength{\textfloatsep}{10pt}` |
 
 ### Spacing & typography

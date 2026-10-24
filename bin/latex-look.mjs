@@ -29,6 +29,20 @@ function summary(r) {
   L.push(`${r.ok ? 'OK' : 'FAILED'}  ${r.file}`)
   L.push(`engine ${r.engine} · ${r.cached ? 'reused (nothing changed)' : `${r.passes} pass(es)`} · ${r.pages ?? '?'} pages · showing page ${r.page}`)
   if (r.toc?.expected) L.push(`toc    ${r.toc.entries ?? 0} entries`)
+  if (r.audit) {
+    if (r.audit.error) L.push(`audit  FAILED: ${r.audit.error}`)
+    else {
+      const n = r.audit.findings.length
+      const fresh = r.audit.newFindings.length
+      L.push('')
+      if (!r.audit.hadBaseline) L.push(`AUDIT  baseline recorded: ${n} page(s) stop short (${r.audit.sectionEnds} of them a chapter or section end)`)
+      else if (!fresh) L.push(`AUDIT  nothing new: still the same ${n} page(s) stop short, none introduced by this build`)
+      else L.push(`AUDIT  ${fresh} NEW finding(s) since the last run (${n} in total):`)
+      for (const f of (fresh ? r.audit.newFindings : []).slice(0, 8)) {
+        L.push(`  ${f.kind.padEnd(12)} p${f.page}  ${f.mm.toFixed(0)}mm  ${f.lastLine ? '…' + f.lastLine.slice(-28) : ''}`)
+      }
+    }
+  }
   if (r.aux?.length) L.push(`aux    ${r.aux.map((a) => `${a.tool}${a.ok ? '' : ' FAILED'}`).join(', ')}`)
   if (r.images?.after) L.push(`image  ${r.images.after}`)
   if (r.fatal) L.push(`FATAL  ${r.fatal}`)
@@ -107,6 +121,8 @@ try {
     maxPasses: args['max-passes'] ? Number(args['max-passes']) : undefined,
     timeoutSeconds: args.timeout ? Number(args.timeout) : undefined,
     fresh: args.fresh === true || args.fresh === 'true',
+    audit: args.audit === true || args.audit === 'true',
+    auditBlankMm: args['audit-blank'] ? Number(args['audit-blank']) : undefined,
   })
   if (args.json) console.log(JSON.stringify(result, null, 2))
   else console.log(summary(result))

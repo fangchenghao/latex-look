@@ -235,6 +235,43 @@ try {
   })
   await rm(warnDir, { recursive: true, force: true })
 
+  // ---- 10. the layout audit finds a hole an edit introduced ---------------------
+  // The point of the audit is not "does any page end early" — books are full of
+  // chapter ends — but "did MY edit push the rest of a page down". So: build once for
+  // a baseline, change the document so a page break leaves a hole, expect it flagged.
+  const auditDir = join(dir, 'audit')
+  await mkdir(auditDir, { recursive: true })
+  const auditTex = join(auditDir, 'audit.tex')
+  const filler = Array.from({ length: 40 }, (_, i) => `第${i + 1}段用来把这一页填满，这样最后一页才是真的满页。`).join('\n\n')
+  const AUDIT_BASE = String.raw`\documentclass[UTF8,zihao=5]{ctexart}
+\usepackage[a4paper]{geometry}
+\begin{document}
+${filler}
+
+\newpage
+${filler}
+\end{document}
+`
+  await writeFile(auditTex, AUDIT_BASE)
+  const auditRun1 = await look(auditTex, { page: 1, compare: null, audit: true })
+  check('audit records a baseline on first run', () => {
+    assert.ok(auditRun1.audit, 'no audit report')
+    assert.equal(auditRun1.audit.hadBaseline, false, 'a fresh document must not claim a baseline')
+    assert.equal(auditRun1.audit.newFindings.length, 0, `first run invented ${auditRun1.audit.newFindings.length} finding(s)`)
+  })
+  // Two \newpage in a row are collapsed by TeX and leave no hole at all, so break the
+  // FIRST page in the middle instead: that pushes the rest of its text down and leaves
+  // exactly the hole a reader complains about.
+  const firstPara = AUDIT_BASE.split('\n\n')[2]
+  const broken = AUDIT_BASE.replace(firstPara + '\n\n', firstPara + '\n\n\\newpage\n')
+  await writeFile(auditTex, broken)
+  const auditRun2 = await look(auditTex, { page: 1, compare: null, audit: true })
+  check('audit reports the hole an edit introduced', () => {
+    assert.equal(auditRun2.audit.hadBaseline, true, 'second run must compare against the baseline')
+    assert.ok(auditRun2.audit.newFindings.length >= 1, 'a blank page in the middle of the text was not reported')
+  })
+  await rm(auditDir, { recursive: true, force: true })
+
   console.log(failures ? `\n${failures} check(s) failed` : '\nall checks passed')
 } finally {
   await rm(dir, { recursive: true, force: true })

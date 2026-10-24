@@ -54,6 +54,7 @@ ln -sf "$PWD/SKILL.md" ~/.dsh/skills/latex-look/SKILL.md
 node bin/latex-look.mjs book.tex --page 37
 node bin/latex-look.mjs book.tex --text "表3.1"
 node bin/latex-look.mjs book.tex --page 12 --compare previous --json
+node bin/latex-look.mjs book.tex --page 1 --audit   # what did the last edit break, anywhere?
 ```
 
 The CLI runs the same engine as the plugin and needs no Harness, which makes it the fast way to check a change without reloading anything.
@@ -175,7 +176,9 @@ latex_look({
   "engine": "xelatex",      // optional
   "maxPasses": 3,           // optional
   "timeoutSeconds": 300,    // optional
-  "fresh": false            // optional: ignore the build cache
+  "fresh": false,           // optional: ignore the build cache
+  "audit": false,           // optional: whole-document layout audit vs the last run
+  "auditBlankMm": 30        // optional: how deep a bottom hole must be to count
 })
 ```
 
@@ -188,6 +191,7 @@ Returns:
 - PNG path(s) for the rendered page — hand these to an image reader
 - `located`: `{ file, line, page }` for the text anchor or point you asked about
 - `diff`: `changedRatio` plus the bounding box of the change **in PDF points**, ready to feed back into `pointX`/`pointY`
+- `audit`: page-level layout findings — pages that stop short of the deepest text in the book, pages that start low, nearly empty pages — **compared with the baseline the previous audit left behind**, so `newFindings` is exactly what the latest build broke. Running heads, rules and page numbers are detected and excluded first; otherwise a page number becomes "the lowest ink in the book" and every page looks broken
 
 ## How the locating works
 
