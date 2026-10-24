@@ -272,6 +272,31 @@ ${filler}
   })
   await rm(auditDir, { recursive: true, force: true })
 
+  // ---- 11. reading order of numbered labels ---------------------------------
+  const orderTex = join(dir, 'order.tex')
+  const ORDER_GOOD = String.raw`\documentclass[UTF8]{ctexart}
+\begin{document}
+图 1-1 第一条
+
+图 1-2 第二条
+
+图 1-3 第三条
+\end{document}
+`
+  await writeFile(orderTex, ORDER_GOOD)
+  const orderRun = await look(orderTex, { page: 1, compare: null, sequence: '图' })
+  check('sequence accepts an in-order document', () => {
+    assert.equal(orderRun.sequence.total, 3, JSON.stringify(orderRun.sequence))
+    assert.equal(orderRun.sequence.inversions.length, 0)
+  })
+  const ORDER_BAD = ORDER_GOOD.replace('图 1-1 第一条\n\n图 1-2 第二条', '图 1-2 第二条\n\n图 1-1 第一条')
+  await writeFile(orderTex, ORDER_BAD)
+  const orderBad = await look(orderTex, { page: 1, compare: null, sequence: '图' })
+  check('sequence reports a label that goes backwards', () => {
+    assert.equal(orderBad.sequence.inversions.length, 1, JSON.stringify(orderBad.sequence))
+    assert.equal(orderBad.sequence.inversions[0].before.label, '图 1-2')
+  })
+
   console.log(failures ? `\n${failures} check(s) failed` : '\nall checks passed')
 } finally {
   await rm(dir, { recursive: true, force: true })

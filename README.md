@@ -178,7 +178,8 @@ latex_look({
   "timeoutSeconds": 300,    // optional
   "fresh": false,           // optional: ignore the build cache
   "audit": false,           // optional: whole-document layout audit vs the last run
-  "auditBlankMm": 30        // optional: how deep a bottom hole must be to count
+  "auditBlankMm": 30        // optional: how deep a bottom hole must be to count,
+  "sequence": "图"            // optional: check that numbered labels stay in reading order
 })
 ```
 
@@ -191,6 +192,7 @@ Returns:
 - PNG path(s) for the rendered page — hand these to an image reader
 - `located`: `{ file, line, page }` for the text anchor or point you asked about
 - `diff`: `changedRatio` plus the bounding box of the change **in PDF points**, ready to feed back into `pointX`/`pointY`
+- `sequence`: reading order of labels that start a line ("图 1-1", "Figure 3.2", …). A float is placed later than an inline object that follows it in the source, so floating one member of a numbered run makes the numbers go backwards — the one defect a per-page diff can never show
 - `audit`: page-level layout findings — pages that stop short of the deepest text in the book, pages that start low, nearly empty pages — **compared with the baseline the previous audit left behind**, so `newFindings` is exactly what the latest build broke. Running heads, rules and page numbers are detected and excluded first; otherwise a page number becomes "the lowest ink in the book" and every page looks broken
 
 ## How the locating works

@@ -59,6 +59,17 @@ function format(r) {
   if (r.images?.before) L.push(`image before the edit: ${r.images.before}`)
   if (r.images?.sideBySide) L.push(`before | after in one image: ${r.images.sideBySide}`)
   if (r.fatal) L.push(`FATAL: ${r.fatal}`)
+  if (r.sequence && !r.sequence.error) {
+    L.push('')
+    if (!r.sequence.inversions.length) {
+      L.push(`ORDER: ${r.sequence.total} ${r.sequence.label}-label(s), all in reading order`)
+    } else {
+      L.push(`ORDER: ${r.sequence.inversions.length} inversion(s) — the numbers go backwards on the page:`)
+      for (const v of r.sequence.inversions.slice(0, 8)) {
+        L.push(`  ${v.before.label} is on page ${v.before.page}, but ${v.after.label} is on page ${v.after.page}`)
+      }
+    }
+  }
   if (r.audit) {
     if (r.audit.error) L.push(`AUDIT FAILED: ${r.audit.error}`)
     else if (!r.audit.hadBaseline) {
@@ -186,6 +197,13 @@ export function apply(ctx) {
           type: 'number',
           description: 'How deep a hole at the foot of a page must be (mm) before the audit calls it one. Defaults to 30.',
         },
+        sequence: {
+          type: 'string',
+          description:
+            "Check reading order for numbered labels that start with this prefix (e.g. '图' or 'Figure'). Reports any " +
+            "inversion, which is what a figure that became a float while its neighbours stayed inline causes: the reader " +
+            "turns the page to see 图 3-4 before 图 3-3. Run it after any change to how objects are placed.",
+        },
         timeoutSeconds: {
           type: 'number',
           description: 'Per-pass time budget in seconds before the engine is killed. Defaults to 300.',
@@ -223,6 +241,7 @@ export function apply(ctx) {
             fresh: args.fresh === true,
             audit: args.audit === true,
             auditBlankMm: clampInt(args.auditBlankMm, 5, 200, 30),
+            sequence: args.sequence ? String(args.sequence) : null,
           })
           return format(result)
         } catch (e) {

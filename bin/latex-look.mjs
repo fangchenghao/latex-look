@@ -29,6 +29,16 @@ function summary(r) {
   L.push(`${r.ok ? 'OK' : 'FAILED'}  ${r.file}`)
   L.push(`engine ${r.engine} · ${r.cached ? 'reused (nothing changed)' : `${r.passes} pass(es)`} · ${r.pages ?? '?'} pages · showing page ${r.page}`)
   if (r.toc?.expected) L.push(`toc    ${r.toc.entries ?? 0} entries`)
+  if (r.sequence && !r.sequence.error) {
+    L.push('')
+    if (!r.sequence.inversions.length) L.push(`ORDER  ${r.sequence.total} ${r.sequence.label}-label(s), all in reading order`)
+    else {
+      L.push(`ORDER  ${r.sequence.inversions.length} inversion(s) among ${r.sequence.total} ${r.sequence.label}-label(s):`)
+      for (const v of r.sequence.inversions.slice(0, 8)) {
+        L.push(`  ${v.before.label} on page ${v.before.page} comes before ${v.after.label} on page ${v.after.page}`)
+      }
+    }
+  }
   if (r.audit) {
     if (r.audit.error) L.push(`audit  FAILED: ${r.audit.error}`)
     else {
@@ -122,6 +132,7 @@ try {
     timeoutSeconds: args.timeout ? Number(args.timeout) : undefined,
     fresh: args.fresh === true || args.fresh === 'true',
     audit: args.audit === true || args.audit === 'true',
+    sequence: args.sequence ? String(args.sequence) : null,
     auditBlankMm: args['audit-blank'] ? Number(args['audit-blank']) : undefined,
   })
   if (args.json) console.log(JSON.stringify(result, null, 2))
