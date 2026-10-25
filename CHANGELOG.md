@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.2
+
+- **`--point` now says what is drawn there.** Asking "what is at (300,118)" on a
+  rule used to return `\end{document}`, because a rule drawn by `fancyhdr` has no
+  line of its own and inverse search returns the nearest box. The tool measures the
+  ink instead: it reports whether the point holds a rule, text or nothing, and when
+  the ink is a rule it either names the command that draws it
+  (`drawn by line 15: \rule{\linewidth}{0.4pt}`) or says plainly that no line of
+  the document draws it and the reader should look at `\pagestyle`/`\headrulewidth`.
+- Point lookups return the queried coordinates instead of `x=undefined y=undefined`,
+  and synctex's `/tmp/./main.tex` spellings are normalised.
+
 ## 0.3.0
 
 Everything below came out of driving the tool against a real 215-page book

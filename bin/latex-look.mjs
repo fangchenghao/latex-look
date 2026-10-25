@@ -80,7 +80,15 @@ function summary(r) {
     L.push('LOCATED')
     for (const h of r.located.slice(0, 5)) {
       const fixed = h.pageVerified && h.synctexPage && h.synctexPage !== h.page ? `  (synctex: p${h.synctexPage})` : ''
-      L.push(`  ${h.file}:${h.line}  → p${h.page} x=${h.x?.toFixed?.(1)} y=${h.y?.toFixed?.(1)}${fixed}`)
+      const at = typeof h.x === 'number' && typeof h.y === 'number' ? ` x=${h.x.toFixed(1)} y=${h.y.toFixed(1)}` : ''
+      L.push(`  ${h.file}:${h.line}  → p${h.page}${at}${fixed}`)
+      if (h.ink && h.ink.kind === 'rule' && h.ink.origin === 'command' && h.ink.sourceLine) {
+        L.push(`      ^ that is a rule, not text: it is drawn by line ${h.ink.sourceLine.line}: ${h.ink.sourceLine.text}`)
+      } else if (h.ink && h.ink.kind === 'rule') {
+        L.push(`      ^ that is a rule spanning ${Math.round(h.ink.span * 100)}% of the page, and NO line of the document draws it.`)
+        L.push('        It is page furniture: \\pagestyle / \\fancyhf / \\headrulewidth, or a table/list rule')
+        L.push('        from a package. The line above is only the nearest box, not the cause.')
+      }
     }
   }
   if (r.diff) {

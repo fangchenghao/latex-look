@@ -12,6 +12,7 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { look, locateText, pageCarryingText } from '../lib/core.mjs'
 import { compareVersions, parseVersion } from '../lib/update.mjs'
+import { classifyInk } from '../lib/core.mjs'
 
 const dir = await mkdtemp(join(tmpdir(), 'latex-look-test-'))
 const tex = join(dir, 'demo.tex')
@@ -312,6 +313,22 @@ ${filler}
   check('an unparseable version does not throw', () => {
     assert.deepEqual(parseVersion('not-a-version'), { major: 0, minor: 0, patch: 0, pre: '' })
     assert.equal(compareVersions('garbage', '0.0.0'), 0)
+  })
+
+  // ---- 14. what is drawn at a point ------------------------------------------
+  check('ink classification tells a rule from text from blank', () => {
+    const W = 100, H = 100
+    const data = new Uint8Array(W * H * 3).fill(255)
+    const ink = (x, y) => { const o = (y * W + x) * 3; data[o] = data[o+1] = data[o+2] = 0 }
+    for (let x = 0; x < W; x++) ink(x, 20)            // a full-width rule
+    for (let y = 60; y < 68; y++) for (let x = 40; x < 60; x++) ink(x, y)  // a word
+    const raster = { width: W, height: H, max: 255, data }
+    // dpi 72 == one pixel per point, so page coordinates are pixel coordinates.
+    assert.equal(classifyInk(raster, { x: 50, y: 20, dpi: 72 }).kind, 'rule')
+    assert.equal(classifyInk(raster, { x: 50, y: 64, dpi: 72 }).kind, 'text')
+    assert.equal(classifyInk(raster, { x: 5, y: 90, dpi: 72 }).kind, 'blank')
+    // Off the page is its own answer: a blank classification would be a lie.
+    assert.equal(classifyInk(raster, { x: 500, y: 20, dpi: 72 }).kind, 'outside')
   })
 
   console.log(failures ? `\n${failures} check(s) failed` : '\nall checks passed')

@@ -124,6 +124,13 @@ function format(r) {
           ? ` (SyncTeX said ${h.synctexPage}; the page text says otherwise)`
           : ''
       L.push(`  ${h.file}:${h.line} → page ${h.page}${y}${fixed}`)
+      if (h.ink && h.ink.kind === 'rule' && h.ink.origin === 'command' && h.ink.sourceLine) {
+        L.push(`      ^ that is a rule, not text: it is drawn by line ${h.ink.sourceLine.line}: ${h.ink.sourceLine.text}`)
+      } else if (h.ink && h.ink.kind === 'rule') {
+        L.push(`      ^ that is a rule spanning ${Math.round(h.ink.span * 100)}% of the page, and NO line of the document draws it.`)
+        L.push('        It is page furniture: \\pagestyle / \\fancyhf / \\headrulewidth, or a table/list rule from a package.')
+        L.push('        The line above is only the nearest box, not the cause.')
+      }
     }
   }
   if (r.diff) {
