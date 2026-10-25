@@ -128,11 +128,16 @@ function format(r) {
           : ''
       L.push(`  ${h.file}:${h.line} → page ${h.page}${y}${fixed}`)
       if (h.ink && h.ink.kind === 'rule' && h.ink.origin === 'command' && h.ink.sourceLine) {
-        L.push(`      ^ that is a rule, not text: it is drawn by line ${h.ink.sourceLine.line}: ${h.ink.sourceLine.text}`)
+        L.push(`      ^ ink at this point: horizontal rule at y=${h.ink.y}pt, ${Math.round(h.ink.span * 100)}% of page width`)
+        L.push(`        drawn by line ${h.ink.sourceLine.line}: ${h.ink.sourceLine.text}`)
       } else if (h.ink && h.ink.kind === 'rule') {
-        L.push(`      ^ that is a rule spanning ${Math.round(h.ink.span * 100)}% of the page, and NO line of the document draws it.`)
-        L.push('        It is page furniture: \\pagestyle / \\fancyhf / \\headrulewidth, or a table/list rule from a package.')
-        L.push('        The line above is only the nearest box, not the cause.')
+        // Facts only: what to do about a rule is the reader's knowledge, not the
+        // tool's. A hint here would be wrong on any document that does not match it.
+        L.push(`      ^ ink at this point: horizontal rule at y=${h.ink.y}pt, ${Math.round(h.ink.span * 100)}% of page width`)
+        L.push(`        nearest source line ${h.line} contains no rule command, and neither does any line within 4 of it`)
+        L.push('        the document body does not draw this rule')
+      } else if (h.ink && h.ink.kind === 'blank') {
+        L.push('      ^ ink at this point: none (blank paper; the nearest box belongs to a different spot)')
       }
     }
   }

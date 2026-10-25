@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.3.5
+
+- **The tool reports facts, not advice.** When the point lookup finds a rule it now
+  says what it measured and stops: `ink at this point: horizontal rule at y=47pt,
+  76% of page width`, then either `drawn by line 15: \rule{...}` or `nearest source
+  line 40 contains no rule command ... the document body does not draw this rule`.
+  The previous wording told the reader to go and look at `\pagestyle` /
+  `\headrulewidth`; that is knowledge about typography, not an observation, and the
+  tool is the wrong place for it — it lives in `SKILL.md`, where the agent reads it
+  and decides.
+- The ink probe searches a ±4 pt band instead of one pixel row. Clicking a line is
+  routinely a point or two off, and a miss left the caller trusting the locate answer
+  this check exists to challenge. The finding reports the rule's own y, so a query
+  two points away still lands on the truth.
+
 ## 0.3.4
 
 - Fix the bundle patch for a scoped package name: `name: @scope/pkg` is not valid
