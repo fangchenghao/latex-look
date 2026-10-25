@@ -140,8 +140,8 @@ function format(r) {
         // Facts only: what to do about a rule is the reader's knowledge, not the
         // tool's. A hint here would be wrong on any document that does not match it.
         L.push(`      ^ ink at this point: horizontal rule at y=${h.ink.y}pt, ${Math.round(h.ink.span * 100)}% of page width`)
-        L.push(`        nearest source line ${h.line} contains no rule command, and neither does any line within 4 of it`)
-        L.push('        the document body does not draw this rule')
+        L.push(`        no rule-drawing command on line ${h.line} or any of the 4 lines around it`)
+        L.push('        so it is drawn somewhere else: a package, the page style, or a macro')
       } else if (h.ink && h.ink.kind === 'blank') {
         L.push('      ^ ink at this point: none (blank paper; the nearest box belongs to a different spot)')
       }

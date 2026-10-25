@@ -331,6 +331,12 @@ ${filler}
     assert.equal(classifyInk(raster, { x: 500, y: 20, dpi: 72 }).kind, 'outside')
     // A reader clicking a rule is a point or two off; the probe must still find it,
     // and must report where the rule really is.
+    // A table rule spans a third of the page, not all of it: a fraction-of-row test
+    // called it nothing, and silence reads as "no feature here".
+    const wide = new Uint8Array(W * H * 3).fill(255)
+    for (let x = 20; x < 55; x++) { const o = (50 * W + x) * 3; wide[o] = wide[o + 1] = wide[o + 2] = 0 }
+    const tableRule = classifyInk({ width: W, height: H, max: 255, data: wide }, { x: 30, y: 50, dpi: 72 })
+    assert.equal(tableRule.kind, 'rule')
     const near = classifyInk(raster, { x: 50, y: 23, dpi: 72 })
     assert.equal(near.kind, 'rule')
     assert.equal(near.y, 20)

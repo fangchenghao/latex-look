@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.3.7
+
+- **A table rule was invisible to the ink probe.** Detection asked what fraction of a
+  full page row carried ink, so a `\hline` spanning a third of the page scored 0.30
+  against a 0.35 threshold and came back as `none` — silence, which reads as "no
+  feature here", on the one shape users ask about most after the header line. It now
+  measures the longest unbroken run in the row: a rule is one run, a line of text is
+  many short ones. The same table rule now reports
+  `horizontal rule at y=155pt, 30% of page width` and is attributed: `drawn by line
+  25: \hline`.
+- The not-attributed wording stopped claiming more than it knows. `the document body
+  does not draw this rule` was false for a `\toprule`, a tikz line or anything else
+  a package draws; it now says `no rule-drawing command on line N or any of the 4
+  lines around it, so it is drawn somewhere else`.
+
 ## 0.3.6
 
 Three ways the tool could answer a question it had not actually answered, found by
