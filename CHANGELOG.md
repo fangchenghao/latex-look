@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.3
+
+- **Moved to a scope: `@fffangchenghao/dsh-latex-look`.** The flat name
+  `dsh-latex-look` is deprecated and kept only as a signpost. A scope makes the
+  owner visible at a glance and removes the squatting risk that an unscoped name
+  carries. Install with `target: @fffangchenghao/dsh-latex-look`.
+- The update check follows the new name; the plugin id (`dsh-latex-look`) does
+  not, because profile config and enable state key off it.
+
 ## 0.3.2
 
 - **`--point` now says what is drawn there.** Asking "what is at (300,118)" on a

@@ -6,6 +6,9 @@ import { defineTool } from '@deepseek-ai/dsh-tools'
 import { ENGINES, look } from './lib/core.mjs'
 import { checkForUpdate } from './lib/update.mjs'
 
+// The plugin id, deliberately unchanged when the package moved to a scope: profile
+// config, enable state and the bundle row (`id: latex-look`) all key off it, and a
+// reader does not care what a package is called. The npm name lives in package.json.
 export const name = 'dsh-latex-look'
 
 // Set once, in the background, the first time the plugin loads. Appended to a tool
@@ -156,7 +159,7 @@ export function apply(ctx) {
   checkForUpdate()
     .then((r) => {
       if (!r.outdated || !r.latest) return
-      updateHint = `note: dsh-latex-look ${r.latest} is available (this is ${r.current}); upgrade it with the plugin manager.`
+      updateHint = `note: @fffangchenghao/dsh-latex-look ${r.latest} is available (this is ${r.current}); upgrade it with the plugin manager.`
       ctx.logger?.info?.(`[latex-look] ${r.latest} available (running ${r.current})`)
     })
     .catch(() => {})

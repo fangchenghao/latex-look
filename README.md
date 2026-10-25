@@ -1,6 +1,6 @@
 # latex-look — teach an agent to *see* your LaTeX
 
-[![npm](https://img.shields.io/npm/v/dsh-latex-look?color=blue)](https://www.npmjs.com/package/dsh-latex-look)
+[![npm](https://img.shields.io/npm/v/@fffangchenghao%2Fdsh-latex-look?color=blue)](https://www.npmjs.com/package/@fffangchenghao/dsh-latex-look)
 [![tests](https://img.shields.io/badge/tests-smoke%20%2B%20scenarios-brightgreen)](test/)
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
@@ -54,10 +54,10 @@ plugin_manager  action: install_bundle  target: /absolute/path/to/latex-look
 
 That adds the row `latex-look` and registers the `latex_look` tool. Replacing the sources of an already-installed package needs a Harness restart to load a fresh module generation.
 
-Published on npm as [`dsh-latex-look`](https://www.npmjs.com/package/dsh-latex-look), so the same row also installs straight from the registry:
+Published on npm as [`@fffangchenghao/dsh-latex-look`](https://www.npmjs.com/package/@fffangchenghao/dsh-latex-look), so the same row also installs straight from the registry:
 
 ```
-plugin_manager  action: install_bundle  target: dsh-latex-look
+plugin_manager  action: install_bundle  target: @fffangchenghao/dsh-latex-look
 ```
 
 ### Updating
@@ -65,7 +65,7 @@ plugin_manager  action: install_bundle  target: dsh-latex-look
 The plugin checks the registry **once a day, in the background**, and appends a single line to a tool reply when a newer release exists — no repeated nagging, and an offline machine sees nothing at all. To upgrade, install the same bundle again:
 
 ```
-plugin_manager  action: install_bundle  target: dsh-latex-look
+plugin_manager  action: install_bundle  target: @fffangchenghao/dsh-latex-look
 ```
 
 On a live profile the upgrade applies immediately; the harness reloads the module generation on the next start, because `core.mjs` (unlike `index.js`) is not hot-reloaded.

@@ -6,7 +6,7 @@ Two files, one page each, the same content:
 - [`fixed.tex`](fixed.tex) — the same page after five sentences.
 
 ```bash
-npm install -g dsh-latex-look      # or use the plugin inside the Harness
+npm install -g @fffangchenghao/dsh-latex-look      # or use the plugin inside the Harness
 latex-look broken.tex --page 1     # renders page 1 to a PNG
 latex-look fixed.tex  --page 1
 ```
@@ -31,7 +31,8 @@ same reason a spell-checker cannot tell you your table has too many rules.
 ## Why defect 1 is the interesting one
 
 "Delete the line at the top of the page" is the request that proves the point:
-there is no line in the source. Nothing in `broken.tex` says `ule` at that
+there is no line in the source. Nothing in `broken.tex` says `
+ule` at that
 height — the hairline above the title is drawn by `fancyhdr` because
 `\pagestyle{fancy}` was set and the header was never cleared. Grep finds nothing,
 reading the file finds nothing, and a model that never sees the page has no way to

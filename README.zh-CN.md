@@ -1,6 +1,6 @@
 # latex-look — 让 Agent 真正「看见」你的 LaTeX
 
-[![npm](https://img.shields.io/npm/v/dsh-latex-look?color=blue)](https://www.npmjs.com/package/dsh-latex-look)
+[![npm](https://img.shields.io/npm/v/@fffangchenghao%2Fdsh-latex-look?color=blue)](https://www.npmjs.com/package/@fffangchenghao/dsh-latex-look)
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [English](README.md) · **简体中文**
 
@@ -72,13 +72,13 @@ latex-look main.tex --page 1  --audit             # 全书版面回归审计
 DeepSeek Harness 插件形态：
 
 ```
-plugin_manager  action: install_bundle  target: dsh-latex-look
+plugin_manager  action: install_bundle  target: @fffangchenghao/dsh-latex-look
 ```
 
 命令行形态：
 
 ```bash
-npm i -g dsh-latex-look
+npm i -g @fffangchenghao/dsh-latex-look
 ```
 
 Agent 的「眼睛」由工具提供；[`SKILL.md`](SKILL.md) 提供「看到症状之后怎么改」的知识——
