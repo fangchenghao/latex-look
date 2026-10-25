@@ -70,7 +70,10 @@ function format(r) {
   if (r.fatal) L.push(`FATAL: ${r.fatal}`)
   if (r.sequence && !r.sequence.error) {
     L.push('')
-    if (!r.sequence.inversions.length) {
+    if (r.sequence.unreliable) {
+      L.push(`ORDER: cannot check the order — ${r.sequence.unreliable}`)
+      L.push('  Nothing is reported as in order, because nothing was read.')
+    } else if (!r.sequence.inversions.length) {
       L.push(`ORDER: ${r.sequence.total} ${r.sequence.label}-label(s), all in reading order`)
     } else {
       L.push(`ORDER: ${r.sequence.inversions.length} inversion(s) — the numbers go backwards on the page:`)
@@ -81,7 +84,10 @@ function format(r) {
   }
   if (r.audit) {
     if (r.audit.error) L.push(`AUDIT FAILED: ${r.audit.error}`)
-    else if (!r.audit.hadBaseline) {
+    else if (r.audit.calibration) {
+      L.push(`AUDIT: cannot measure — ${r.audit.calibration}`)
+      L.push('  Nothing is reported as fine, because nothing was compared.')
+    } else if (!r.audit.hadBaseline) {
       L.push('')
       const why = r.audit.repaginatedFrom
         ? `the baseline was a ${r.audit.repaginatedFrom}-page build and this one has ${r.audit.pages}: the document repaginated, so findings are matched by the text at the break, not by page number`

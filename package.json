@@ -1,6 +1,6 @@
 {
   "name": "@fffangchenghao/dsh-latex-look",
-  "version": "0.3.5",
+  "version": "0.3.6",
   "description": "DSH plugin: let an AI agent see a LaTeX document — compile it, render the page, locate the source line, and diff what an edit changed.",
   "type": "module",
   "license": "MIT",

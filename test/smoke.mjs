@@ -12,7 +12,7 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { look, locateText, pageCarryingText } from '../lib/core.mjs'
 import { compareVersions, parseVersion } from '../lib/update.mjs'
-import { classifyInk } from '../lib/core.mjs'
+import { classifyInk, textLayerHealth } from '../lib/core.mjs'
 
 const dir = await mkdtemp(join(tmpdir(), 'latex-look-test-'))
 const tex = join(dir, 'demo.tex')
@@ -329,6 +329,33 @@ ${filler}
     assert.equal(classifyInk(raster, { x: 5, y: 90, dpi: 72 }).kind, 'blank')
     // Off the page is its own answer: a blank classification would be a lie.
     assert.equal(classifyInk(raster, { x: 500, y: 20, dpi: 72 }).kind, 'outside')
+    // A reader clicking a rule is a point or two off; the probe must still find it,
+    // and must report where the rule really is.
+    const near = classifyInk(raster, { x: 50, y: 23, dpi: 72 })
+    assert.equal(near.kind, 'rule')
+    assert.equal(near.y, 20)
+  })
+
+  // A text layer full of unmapped glyphs is not an empty document: reporting
+  // "0 labels, all in order" is a pass for a check that never ran.
+  await check('text layer health separates unreadable from clean', async () => {
+    const clean = textLayerHealth(['图 1-1 甲', '正文'])
+    assert.equal(clean.usable, true)
+    const unmapped = textLayerHealth(['\uffff'.repeat(40), '\uffff'.repeat(40)])
+    assert.equal(unmapped.usable, false)
+    assert.match(unmapped.reason, /no Unicode mapping/)
+    const empty = textLayerHealth(['', '   '])
+    assert.equal(empty.usable, false)
+    assert.match(empty.reason, /no text layer at all/)
+  })
+
+  // One page cannot be its own reference: the audit must decline, not report zero holes.
+  await check('a one-page document is not audited against itself', async () => {
+    const one = join(dir, 'one.tex')
+    await writeFile(one, '\\documentclass{article}\n\\begin{document}\nShort.\\end{document}\n')
+    const r = await look(one, { page: 1, audit: true })
+    assert.notEqual(r.audit.calibration, null)
+    assert.match(r.audit.calibration, /cannot be the reference/)
   })
 
   console.log(failures ? `\n${failures} check(s) failed` : '\nall checks passed')

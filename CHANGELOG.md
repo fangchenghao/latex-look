@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.3.6
+
+Three ways the tool could answer a question it had not actually answered, found by
+testing documents whose pages are not all alike:
+
+- **A point outside the paper** used to return a source line anyway, because synctex
+  answers about the nearest box even when there is no box under the point. It now
+  says how large the page is and locates nothing.
+- **An unreadable text layer** made `sequence` report `0 label(s), all in reading
+  order`— a pass for a check that never ran. A PDF whose glyphs carry no Unicode
+  mapping now gets `cannot check the order: ... 90% of its characters are glyphs
+  with no Unicode mapping`, and the same guard covers a PDF with no text layer at all.
+- **An audit of a one- or two-page document** reported `0 page(s) stop short`, because
+  the reference block bottom was that same page's bottom. It now declines with the
+  reason.
+
+Faster while fixing pages one at a time: the whole-document passes (text layer, ink
+raster) are cached on the PDF's mtime and size, so a second `audit` in the same
+session costs 2 ms instead of 7.5 s, and `audit` plus `sequence` together dropped from
+11.5 s to 8.1 s on a 215-page book.
+
 ## 0.3.5
 
 - **The tool reports facts, not advice.** When the point lookup finds a rule it now

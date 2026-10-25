@@ -32,7 +32,8 @@ function summary(r) {
   if (r.toc?.expected) L.push(`toc    ${r.toc.entries ?? 0} entries`)
   if (r.sequence && !r.sequence.error) {
     L.push('')
-    if (!r.sequence.inversions.length) L.push(`ORDER  ${r.sequence.total} ${r.sequence.label}-label(s), all in reading order`)
+    if (r.sequence.unreliable) L.push(`ORDER  cannot check the order: ${r.sequence.unreliable}`)
+    else if (!r.sequence.inversions.length) L.push(`ORDER  ${r.sequence.total} ${r.sequence.label}-label(s), all in reading order`)
     else {
       L.push(`ORDER  ${r.sequence.inversions.length} inversion(s) among ${r.sequence.total} ${r.sequence.label}-label(s):`)
       for (const v of r.sequence.inversions.slice(0, 8)) {
@@ -42,6 +43,7 @@ function summary(r) {
   }
   if (r.audit) {
     if (r.audit.error) L.push(`audit  FAILED: ${r.audit.error}`)
+    else if (r.audit.calibration) L.push(`AUDIT  cannot measure: ${r.audit.calibration}`)
     else {
       const n = r.audit.findings.length
       const fresh = r.audit.newFindings.length
