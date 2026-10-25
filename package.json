@@ -22,7 +22,13 @@
     "SKILL.md",
     "README.md",
     "LICENSE",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "CASE-STUDY.md",
+    "README.zh-CN.md",
+    "docs/before-after.png",
+    "examples/broken-layout/broken.tex",
+    "examples/broken-layout/fixed.tex",
+    "examples/broken-layout/README.md"
   ],
   "dsh": {
     "bundle": {

@@ -1,5 +1,18 @@
 # latex-look — teach an agent to *see* your LaTeX
 
+[![npm](https://img.shields.io/npm/v/dsh-latex-look?color=blue)](https://www.npmjs.com/package/dsh-latex-look)
+[![tests](https://img.shields.io/badge/tests-smoke%20%2B%20scenarios-brightgreen)](test/)
+[![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+
+**English** · [简体中文](README.zh-CN.md)
+
+![A page that compiles and still looks wrong, repaired in five edits](docs/before-after.png)
+
+*Left: compiles with zero errors. Right: after five sentences a reader could say out
+loud — "remove the rules around the title", "this table is a grid, make it a
+booktabs table", "that link runs off the page", "the figure is too wide". Try it
+yourself in [`examples/broken-layout`](examples/broken-layout).*
+
 A **DeepSeek Harness plugin** that adds exactly one tool: `latex_look`.
 
 An agent that only reads `.tex` source is blind: a document can compile with zero errors and still look wrong. `latex_look` compiles the document, renders the page as an image, maps any spot on that page back to the exact source line, and diffs what your last edit changed — in a single call.
@@ -12,6 +25,8 @@ An agent that only reads `.tex` source is blind: a document can compile with zer
               ▲          image + line  └──────────────┘
               └─────────────── verification ───────────┘
 ```
+
+**Read the case study:** [a 215-page LaTeX book, read the way a reader reads it](CASE-STUDY.md) — 163 figures, 129 equations, six classes of defect that compile cleanly.
 
 ## Why one tool, not three
 

@@ -1,0 +1,40 @@
+% The "before" of the demo: a page that compiles, opens fine, and looks wrong.
+% Every defect below is one a reader would describe in words, not in LaTeX.
+\documentclass[UTF8,11pt]{ctexart}
+\usepackage[a4paper,margin=2.5cm]{geometry}
+\usepackage{xcolor}
+\usepackage{booktabs}
+% 页眉：没有 \fancyhf{}，predefined 页眉把章节名和页码一起带出来，还外带一条横线
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+
+\begin{document}
+
+\begin{center}
+{\LARGE\bfseries 实验结果}\\[2pt]
+\rule{\linewidth}{0.4pt}   % 2. 标题下面一条手画的横线，压着正文太近
+\end{center}
+
+\vspace{6pt}
+下表对比了三种模型的准确率。
+
+\begin{center}
+\begin{tabular}{|c|c|c|c|}   % 3. 竖线 + 每格都框起来的网格表
+\hline
+模型 & 参数量 & 准确率 & 训练时间 \\
+\hline
+基线 & 1.2M & 91.3\% & 12 min \\
+\hline
+本文 & 3.4M & 94.8\% & 38 min \\
+\hline
+\end{tabular}
+\end{center}
+
+本节的结果表明，图~\ref{fig:curve} 中的曲线在第一阶段上升最快。实验配置与完整日志见 https://example.com/nndl/experiments/2024/round-07/accuracy-vs-epoch-with-regularization 这个地址。
+
+\begin{figure}[htbp]
+\centering
+\fcolorbox{black!35}{black!6}{\parbox[c][3.2cm][c]{0.95\linewidth}{\centering\small 训练曲线占位图}}\caption{训练曲线}\label{fig:curve}
+\end{figure}
+
+\end{document}
