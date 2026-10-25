@@ -101,6 +101,45 @@ node bin/latex-look.mjs book.tex --page 1 --audit   # what did the last edit bre
 
 The CLI runs the same engine as the plugin and needs no Harness, which makes it the fast way to check a change without reloading anything.
 
+### MCP server, for Claude Desktop, Cursor and Codex
+
+The same engine ships as a Model Context Protocol server, so a client that has never
+heard of DSH can use it. It is the same `look()` and the same words in the reply — the
+plugin is the Harness shape, this is the universal one.
+
+```json
+{
+  "mcpServers": {
+    "latex-look": {
+      "command": "npx",
+      "args": ["-y", "@fffangchenghao/dsh-latex-look", "mcp"]
+    }
+  }
+}
+```
+
+Put that in `claude_desktop_config.json` (Claude Desktop), `~/.cursor/mcp.json`
+(Cursor), or as a TOML block in `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.latex-look]
+command = "npx"
+args = ["-y", "@fffangchenghao/dsh-latex-look", "mcp"]
+```
+
+It exposes one tool, `latex_look`, with the same parameters as everywhere else:
+`file`, `page`, `text`, `pointX`/`pointY`, `compare`, `audit`, `sequence`, `dpi`.
+Pages come back as image content blocks, so the model sees the page itself.
+
+Requirements are the usual ones — a TeX engine and `ghostscript` on `PATH`:
+
+```bash
+brew install --cask mactex-no-gui ghostscript     # macOS
+sudo apt install texlive-xetex ghostscript        # Debian/Ubuntu
+```
+
+Nothing is uploaded: every call compiles the document that is already on your disk.
+
 ## Tests
 
 Three suites run on a clean checkout — they create their own fixtures and compile

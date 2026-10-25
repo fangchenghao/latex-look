@@ -1,7 +1,7 @@
 {
   "name": "@fffangchenghao/dsh-latex-look",
-  "version": "0.3.7",
-  "description": "DSH plugin: let an AI agent see a LaTeX document — compile it, render the page, locate the source line, and diff what an edit changed.",
+  "version": "0.4.0",
+  "description": "See what a LaTeX page actually looks like: compile, render the page to an image, map a point or text anchor back to the source line, and diff the page against the previous build. CLI, MCP server and DSH plugin over one core.",
   "type": "module",
   "license": "MIT",
   "exports": {
@@ -15,7 +15,6 @@
   "files": [
     "index.js",
     "lib",
-    "bin/latex-look.mjs",
     "cordis.patch.yml",
     "locale/*.json",
     "icon.svg",
@@ -28,7 +27,9 @@
     "docs/before-after.png",
     "examples/broken-layout/broken.tex",
     "examples/broken-layout/fixed.tex",
-    "examples/broken-layout/README.md"
+    "examples/broken-layout/README.md",
+    "bin/latex-look.mjs",
+    "bin/mcp.mjs"
   ],
   "dsh": {
     "bundle": {
@@ -42,21 +43,25 @@
     "node": ">=18"
   },
   "scripts": {
-    "test": "node test/smoke.mjs && node test/scenarios.mjs && node test/scenarios-deep.mjs",
+    "test": "node test/smoke.mjs && node test/scenarios.mjs && node test/scenarios-deep.mjs && node test/mcp.mjs",
     "test:unit": "node test/smoke.mjs",
     "test:scenarios": "node test/scenarios.mjs",
     "test:deep": "node test/scenarios-deep.mjs",
-    "test:book": "node test/book-scenarios.mjs"
+    "test:book": "node test/book-scenarios.mjs",
+    "test:mcp": "node test/mcp.mjs"
   },
   "keywords": [
-    "latex",
-    "dsh",
-    "plugin",
     "agent",
-    "synctex",
-    "vision",
+    "claude",
+    "dsh",
+    "latex",
+    "layout",
+    "mcp",
+    "model-context-protocol",
     "pdf",
-    "layout"
+    "plugin",
+    "synctex",
+    "vision"
   ],
   "repository": {
     "type": "git",
@@ -66,5 +71,6 @@
   "bugs": {
     "url": "https://github.com/fangchenghao/latex-look/issues"
   },
-  "author": "fangchenghao"
+  "author": "fangchenghao",
+  "mcpName": "io.github.fangchenghao/latex-look"
 }

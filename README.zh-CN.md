@@ -81,6 +81,31 @@ plugin_manager  action: install_bundle  target: @fffangchenghao/dsh-latex-look
 npm i -g @fffangchenghao/dsh-latex-look
 ```
 
+MCP 形态（Claude Desktop / Cursor / Codex 等任何支持 MCP 的客户端）：
+
+```json
+{
+  "mcpServers": {
+    "latex-look": {
+      "command": "npx",
+      "args": ["-y", "@fffangchenghao/dsh-latex-look", "mcp"]
+    }
+  }
+}
+```
+
+放在 Claude Desktop 的 `claude_desktop_config.json`、Cursor 的 `~/.cursor/mcp.json`，
+或在 `~/.codex/config.toml` 里写成：
+
+```toml
+[mcp_servers.latex-look]
+command = "npx"
+args = ["-y", "@fffangchenghao/dsh-latex-look", "mcp"]
+```
+
+三种形态共用一个 `lib/core.mjs`：同样的测量、同样的措辞、同样的坑。它只暴露一个工具
+`latex_look`，参数与插件完全一致；页面以图片内容块返回，模型直接看见那一页。
+
 Agent 的「眼睛」由工具提供；[`SKILL.md`](SKILL.md) 提供「看到症状之后怎么改」的知识——
 一份**症状 → 成因 → 修法**的手册，例如「读者说的那条横线通常是 `\pagestyle`/`fancyhdr`，
 不是某个 `\hline`」。

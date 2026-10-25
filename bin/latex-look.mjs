@@ -8,6 +8,17 @@
  */
 import { look } from '../lib/core.mjs'
 import { checkForUpdate, currentVersion } from '../lib/update.mjs'
+import { serveStdio } from '../lib/mcp.mjs'
+
+// `latex-look mcp` is the Model Context Protocol server: one command a client can
+// launch, instead of a path into node_modules. It shares everything with the CLI.
+if (process.argv[2] === 'mcp') {
+  await serveStdio()
+} else {
+  await cli()
+}
+
+async function cli() {
 
 function parseArgs(argv) {
   const out = { _: [] }
@@ -113,65 +124,67 @@ function summary(r) {
   return L.join('\n')
 }
 
-const args = parseArgs(process.argv.slice(2))
+  const args = parseArgs(process.argv.slice(2))
 
-if (args.version || args['check-update']) {
-  if (args.version) console.log(await currentVersion())
-  if (args['check-update']) {
-    const r = await checkForUpdate({ ttlMs: 0 })
-    // "Up to date" would be a lie when the registry never answered.
-    if (r.error && !r.latest) console.log(`could not check: ${r.error}`)
-    else if (r.outdated) console.log(`update available: ${r.latest} (running ${r.current})`)
-    else console.log(`up to date: ${r.current}${r.error ? ` (registry said ${r.error}, cached answer)` : ''}`)
+  if (args.version || args['check-update']) {
+    if (args.version) console.log(await currentVersion())
+    if (args['check-update']) {
+      const r = await checkForUpdate({ ttlMs: 0 })
+      // "Up to date" would be a lie when the registry never answered.
+      if (r.error && !r.latest) console.log(`could not check: ${r.error}`)
+      else if (r.outdated) console.log(`update available: ${r.latest} (running ${r.current})`)
+      else console.log(`up to date: ${r.current}${r.error ? ` (registry said ${r.error}, cached answer)` : ''}`)
+    }
+    process.exit(0)
   }
-  process.exit(0)
+
+  if (args.help || !args._[0]) {
+    console.log(`latex-look — see what your LaTeX actually looks like
+
+  Usage:
+    latex-look <main.tex> [options]
+
+  Options:
+    --page <n>          page to render (default 1)
+    --text <anchor>     locate this text and show the page it lands on
+    --point <x,y>       locate the source of a point (PDF points, origin top-left)
+    --compare <p>       'previous' (default) diffs against the PDF from before this
+                        compile; or a path to another PDF
+    --dpi <n>           render resolution (default 140)
+    --engine <e>        xelatex | lualatex | pdflatex | latexmk | tectonic
+    --max-passes <n>    max compile passes (default 3)
+    --fresh             ignore the build cache and recompile
+    --timeout <s>       per-pass time budget in seconds (default 120)
+    --json              machine-readable output
+
+  Requires: a TeX engine, synctex, ghostscript.`)
+    process.exit(args.help ? 0 : 1)
+  }
+
+  const file = args._[0]
+  const at = args.text ? { text: args.text }
+    : args.point ? (([x, y]) => ({ x: Number(x), y: Number(y) }))(String(args.point).split(',')) : undefined
+
+  try {
+    const result = await look(file, {
+      page: args.page ? Number(args.page) : undefined,
+      at,
+      compare: args.compare || 'previous',
+      dpi: args.dpi ? Number(args.dpi) : 140,
+      engine: args.engine,
+      maxPasses: args['max-passes'] ? Number(args['max-passes']) : undefined,
+      timeoutSeconds: args.timeout ? Number(args.timeout) : undefined,
+      fresh: args.fresh === true || args.fresh === 'true',
+      audit: args.audit === true || args.audit === 'true',
+      sequence: args.sequence ? String(args.sequence) : null,
+      auditBlankMm: args['audit-blank'] ? Number(args['audit-blank']) : undefined,
+    })
+    if (args.json) console.log(JSON.stringify(result, null, 2))
+    else console.log(summary(result))
+    process.exit(result.ok ? 0 : 2)
+  } catch (err) {
+    console.error(`latex-look: ${err.message}`)
+    process.exit(1)
+  }
 }
 
-if (args.help || !args._[0]) {
-  console.log(`latex-look — see what your LaTeX actually looks like
-
-Usage:
-  latex-look <main.tex> [options]
-
-Options:
-  --page <n>          page to render (default 1)
-  --text <anchor>     locate this text and show the page it lands on
-  --point <x,y>       locate the source of a point (PDF points, origin top-left)
-  --compare <p>       'previous' (default) diffs against the PDF from before this
-                      compile; or a path to another PDF
-  --dpi <n>           render resolution (default 140)
-  --engine <e>        xelatex | lualatex | pdflatex | latexmk | tectonic
-  --max-passes <n>    max compile passes (default 3)
-  --fresh             ignore the build cache and recompile
-  --timeout <s>       per-pass time budget in seconds (default 120)
-  --json              machine-readable output
-
-Requires: a TeX engine, synctex, ghostscript.`)
-  process.exit(args.help ? 0 : 1)
-}
-
-const file = args._[0]
-const at = args.text ? { text: args.text }
-  : args.point ? (([x, y]) => ({ x: Number(x), y: Number(y) }))(String(args.point).split(',')) : undefined
-
-try {
-  const result = await look(file, {
-    page: args.page ? Number(args.page) : undefined,
-    at,
-    compare: args.compare || 'previous',
-    dpi: args.dpi ? Number(args.dpi) : 140,
-    engine: args.engine,
-    maxPasses: args['max-passes'] ? Number(args['max-passes']) : undefined,
-    timeoutSeconds: args.timeout ? Number(args.timeout) : undefined,
-    fresh: args.fresh === true || args.fresh === 'true',
-    audit: args.audit === true || args.audit === 'true',
-    sequence: args.sequence ? String(args.sequence) : null,
-    auditBlankMm: args['audit-blank'] ? Number(args['audit-blank']) : undefined,
-  })
-  if (args.json) console.log(JSON.stringify(result, null, 2))
-  else console.log(summary(result))
-  process.exit(result.ok ? 0 : 2)
-} catch (err) {
-  console.error(`latex-look: ${err.message}`)
-  process.exit(1)
-}

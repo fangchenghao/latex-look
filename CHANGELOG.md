@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.4.0
+
+- **An MCP server.** `npx -y @fffangchenghao/dsh-latex-look mcp` speaks Model Context
+  Protocol on stdio, so Claude Desktop, Cursor and Codex get the same tool as the
+  Harness plugin: one `latex_look` with `file`, `page`, `text`, `pointX`/`pointY`,
+  `compare`, `audit`, `sequence`, `dpi`. Pages are returned as image content blocks,
+  so the model sees the page rather than a file path. Server version, protocol
+  negotiation and the error codes are covered by a client that speaks the wire format
+  with no SDK.
+- The reply text moved to `lib/format.mjs`, shared by the plugin, the CLI and the MCP
+  server. Three front ends describing the same measurement in three different words
+  would be three tools by accident.
+
 ## 0.3.7
 
 - **A table rule was invisible to the ink probe.** Detection asked what fraction of a
