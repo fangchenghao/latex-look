@@ -11,6 +11,7 @@ const execFileAsync = promisify(execFile)
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { look, locateText, pageCarryingText } from '../lib/core.mjs'
+import { compareVersions, parseVersion } from '../lib/update.mjs'
 
 const dir = await mkdtemp(join(tmpdir(), 'latex-look-test-'))
 const tex = join(dir, 'demo.tex')
@@ -295,6 +296,22 @@ ${filler}
   check('sequence reports a label that goes backwards', () => {
     assert.equal(orderBad.sequence.inversions.length, 1, JSON.stringify(orderBad.sequence))
     assert.equal(orderBad.sequence.inversions[0].before.label, '图 1-2')
+  })
+
+  // ---- 13. version ordering for the update check -----------------------------
+  check('version comparison follows semver', () => {
+    assert.equal(compareVersions('0.3.0', '0.2.0'), 1)
+    assert.equal(compareVersions('0.2.0', '0.2.0'), 0)
+    assert.equal(compareVersions('0.2.0', '0.10.0'), -1)
+    assert.equal(compareVersions('1.0.0', '0.99.99'), 1)
+    // A prerelease sorts below the release it precedes, so an rc must not be offered
+    // to users as an upgrade.
+    assert.equal(compareVersions('0.3.0-rc.1', '0.3.0'), -1)
+    assert.equal(compareVersions('0.3.0', '0.3.0-rc.1'), 1)
+  })
+  check('an unparseable version does not throw', () => {
+    assert.deepEqual(parseVersion('not-a-version'), { major: 0, minor: 0, patch: 0, pre: '' })
+    assert.equal(compareVersions('garbage', '0.0.0'), 0)
   })
 
   console.log(failures ? `\n${failures} check(s) failed` : '\nall checks passed')

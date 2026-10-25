@@ -7,6 +7,7 @@
  *   latex-look book.tex --page 12 --compare previous --json
  */
 import { look } from '../lib/core.mjs'
+import { checkForUpdate, currentVersion } from '../lib/update.mjs'
 
 function parseArgs(argv) {
   const out = { _: [] }
@@ -98,6 +99,18 @@ function summary(r) {
 }
 
 const args = parseArgs(process.argv.slice(2))
+
+if (args.version || args['check-update']) {
+  if (args.version) console.log(await currentVersion())
+  if (args['check-update']) {
+    const r = await checkForUpdate({ ttlMs: 0 })
+    // "Up to date" would be a lie when the registry never answered.
+    if (r.error && !r.latest) console.log(`could not check: ${r.error}`)
+    else if (r.outdated) console.log(`update available: ${r.latest} (running ${r.current})`)
+    else console.log(`up to date: ${r.current}${r.error ? ` (registry said ${r.error}, cached answer)` : ''}`)
+  }
+  process.exit(0)
+}
 
 if (args.help || !args._[0]) {
   console.log(`latex-look — see what your LaTeX actually looks like

@@ -1,6 +1,6 @@
 {
   "name": "dsh-latex-look",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "DSH plugin: let an AI agent see a LaTeX document — compile it, render the page, locate the source line, and diff what an edit changed.",
   "type": "module",
   "license": "MIT",
@@ -21,7 +21,8 @@
     "icon.svg",
     "SKILL.md",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "CHANGELOG.md"
   ],
   "dsh": {
     "bundle": {
@@ -50,5 +51,14 @@
     "vision",
     "pdf",
     "layout"
-  ]
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fangchenghao/latex-look.git"
+  },
+  "homepage": "https://github.com/fangchenghao/latex-look#readme",
+  "bugs": {
+    "url": "https://github.com/fangchenghao/latex-look/issues"
+  },
+  "author": "fangchenghao"
 }

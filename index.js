@@ -4,8 +4,14 @@ import { isAbsolute, resolve } from 'node:path'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 
 import { ENGINES, look } from './lib/core.mjs'
+import { checkForUpdate } from './lib/update.mjs'
 
 export const name = 'dsh-latex-look'
+
+// Set once, in the background, the first time the plugin loads. Appended to a tool
+// reply rather than logged on every call: a note that repeats on every render is
+// noise, and these replies are read closely for the diff.
+let updateHint = null
 
 // `tools` to register latex_look; `systemPrompt` so the "look before you claim
 // it is done" discipline is unconditional rather than dependent on the skill
@@ -128,11 +134,25 @@ function format(r) {
         (b ? ` | bbox x=${b.x} y=${b.y} w=${b.width} h=${b.height} (PDF points, origin top-left)` : ''),
     )
   }
+  if (updateHint) {
+    L.push('')
+    L.push(updateHint)
+  }
   return L.join('\n')
 }
 
 export function apply(ctx) {
   ctx.systemPrompt.section({ name: 'tool:latex-look', order: 1100, text: SYSTEM_PROMPT })
+
+  // Fire and forget: plugin load must not wait on the network, and a registry outage
+  // must never look like a broken tool.
+  checkForUpdate()
+    .then((r) => {
+      if (!r.outdated || !r.latest) return
+      updateHint = `note: dsh-latex-look ${r.latest} is available (this is ${r.current}); upgrade it with the plugin manager.`
+      ctx.logger?.info?.(`[latex-look] ${r.latest} available (running ${r.current})`)
+    })
+    .catch(() => {})
 
   ctx.tools.register(
     defineTool({

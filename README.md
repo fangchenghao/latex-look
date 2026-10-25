@@ -39,6 +39,33 @@ plugin_manager  action: install_bundle  target: /absolute/path/to/latex-look
 
 That adds the row `latex-look` and registers the `latex_look` tool. Replacing the sources of an already-installed package needs a Harness restart to load a fresh module generation.
 
+Published on npm as [`dsh-latex-look`](https://www.npmjs.com/package/dsh-latex-look), so the same row also installs straight from the registry:
+
+```
+plugin_manager  action: install_bundle  target: dsh-latex-look
+```
+
+### Updating
+
+The plugin checks the registry **once a day, in the background**, and appends a single line to a tool reply when a newer release exists — no repeated nagging, and an offline machine sees nothing at all. To upgrade, install the same bundle again:
+
+```
+plugin_manager  action: install_bundle  target: dsh-latex-look
+```
+
+On a live profile the upgrade applies immediately; the harness reloads the module generation on the next start, because `core.mjs` (unlike `index.js`) is not hot-reloaded.
+
+From a checkout, the check is available directly:
+
+```bash
+npx latex-look --version
+npx latex-look --check-update
+```
+
+### Releasing
+
+Tagging `v*` runs the test suite on Ubuntu with TeX and Ghostscript installed, verifies the tag matches `package.json`, and publishes to npm. The token comes from the `NPM_TOKEN` repository secret.
+
 ### Optional: the knowledge skill
 
 The tool gives the agent eyes. [`SKILL.md`](SKILL.md) gives it the LaTeX knowledge to act on what it sees — a symptom → cause → fix playbook (a rule you want gone is usually `\pagestyle`/`fancyhdr`, not a stray `\hline`). Copy or symlink it into the skills root:
