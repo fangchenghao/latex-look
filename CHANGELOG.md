@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.4
+
+- Fix the bundle patch for a scoped package name: `name: @scope/pkg` is not valid
+  YAML, because `@` is a reserved indicator, so the installer rejected the package
+  with `bad indentation of a mapping entry`. Quoted. 0.3.3 installs nowhere.
+
 ## 0.3.3
 
 - **Moved to a scope: `@fffangchenghao/dsh-latex-look`.** The flat name
