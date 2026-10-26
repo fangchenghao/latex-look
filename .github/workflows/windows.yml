@@ -56,6 +56,16 @@ jobs:
           Write-Host "tex: $tex"
           $tex | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
+          # The tests typeset Chinese. `fontset=fandol` needs the fandol package, which
+          # MiKTeX installs on demand only when auto-install is on — and a first run
+          # with it off is a compile error that looks like a plugin bug.
+          try {
+            & "$tex\initexmf.exe" --set-config-value "[MPM]AutoInstall=1" 2>&1 | Out-Host
+            & "$tex\miktex.exe" packages install fandol ctex xecjk 2>&1 | Select-Object -Last 5 | Out-Host
+          } catch {
+            Write-Host "package pre-install skipped: $_"
+          }
+
       - name: Show what the resolver finds
         shell: pwsh
         run: |

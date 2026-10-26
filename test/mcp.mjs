@@ -76,7 +76,10 @@ const doc = join(dir, 'page.tex')
 await writeFile(
   doc,
   [
-    '\\documentclass[UTF8]{ctexart}',
+    // `fontset=fandol` ships with TeX. The default fontset is picked per platform,
+    // and on Windows that means the system Song fonts — which a machine without them
+    // does not have, so the fixture would fail for a reason that is not the plugin.
+    '\\documentclass[UTF8,fontset=fandol]{ctexart}',
     '\\usepackage[a4paper,margin=2.5cm]{geometry}',
     '\\begin{document}',
     // The rule is the first thing on the page, so its row is the top margin (2.5cm at
