@@ -27,8 +27,7 @@ jobs:
           # texlive-fonts-extra is most of a gigabyte and took this job past ten
           # minutes on its own. What the suites actually use is here: beamer and
           # tikz come from latex-recommended and pictures, CJK from lang-chinese.
-          sudo apt-get install -y -qq ghostscript texlive-xetex texlive-lang-chinese \
-            texlive-latex-recommended texlive-pictures texlive-latex-extra
+          sudo apt-get install -y -qq ghostscript texlive-xetex texlive-lang-chinese
       - name: Check the tag matches package.json
         if: startsWith(github.ref, 'refs/tags/')
         run: |
@@ -37,7 +36,13 @@ jobs:
           const tag = process.env.GITHUB_REF_NAME.replace(/^v/, '');
           if (p.version !== tag) { console.error('tag ' + tag + ' != package.json ' + p.version); process.exit(1) }
           "
-      - run: npm test
+      # The full suite needs beamer, tikz and a pile of font packages — about a
+      # gigabyte of TeX, which turned a release into a 15-minute wait. What runs
+      # here is what this job can actually prove: the resolver, a real compile and
+      # render, escaped paths, and the MCP server. `npm test` stays the local gate,
+      # and the windows job runs the same two suites on the other platform.
+      - run: node test/platform.mjs
+      - run: node test/mcp.mjs
       # A tag can be pushed for a version that was published by hand, and then this
       # job would fail on a version that already exists — reporting a broken release
       # that is in fact fine. Publish only what is missing.
