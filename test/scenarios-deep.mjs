@@ -9,12 +9,13 @@
  */
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync, chmodSync } from 'node:fs'
 import { dirname, join } from 'node:path'
+import { tmpdir } from 'node:os'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = dirname(HERE)
-const WORK = '/tmp/latex-look-plugin-test-deep'
-const S = '/tmp/latex-look-deep'
+const WORK = join(tmpdir(), 'latex-look-plugin-test-deep')
+const S = join(tmpdir(), 'latex-look-deep')
 
 // 1x1 PNG, enough for \includegraphics to have something real to place
 const PNG_RED = Buffer.from(

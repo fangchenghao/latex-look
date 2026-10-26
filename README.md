@@ -136,7 +136,14 @@ Requirements are the usual ones — a TeX engine and `ghostscript` on `PATH`:
 ```bash
 brew install --cask mactex-no-gui ghostscript     # macOS
 sudo apt install texlive-xetex ghostscript        # Debian/Ubuntu
+winget install MiKTeX.MiKTeX ArtifexSoftware.GhostScript   # Windows
 ```
+
+On Windows nothing has to be added to `PATH`: the plugin asks for `gswin64c`
+(that is Ghostscript's real name there), and when that is not found it looks in
+`C:\Program Files\gs\gs*\bin`, plus the TeX Live, MiKTeX and TinyTeX install
+directories. If you would rather be explicit, point `PATH` at
+`C:\Program Files\gs\gs10.05.1\bin` and it is used first.
 
 Nothing is uploaded: every call compiles the document that is already on your disk.
 

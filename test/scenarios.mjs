@@ -12,12 +12,13 @@
 import { execFileSync } from 'node:child_process'
 import { copyFileSync, cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
+import { tmpdir } from 'node:os'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = dirname(HERE)
-const WORK = '/tmp/latex-look-plugin-test'
-const S = '/tmp/latex-look-scenarios'
+const WORK = join(tmpdir(), 'latex-look-plugin-test')
+const S = join(tmpdir(), 'latex-look-scenarios')
 
 // --- fixtures --------------------------------------------------------------
 // The suite creates its own documents so it runs on a clean checkout; nothing

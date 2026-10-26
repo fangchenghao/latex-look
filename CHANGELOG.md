@@ -1,3 +1,36 @@
+## 0.4.1 — Windows
+
+The plugin was written on macOS, where Ghostscript is called `gs`, `PATH` is split
+on `:`, `fs.rename` replaces the target and a child in its own process group can be
+killed with a negative PID. Each of those is false on Windows, and the first one is
+fatal: the plugin looked for `gs`, which the Windows installer does not create —
+so a machine with Ghostscript installed was told it had none.
+
+- **Ghostscript is found on Windows.** Looked up as `gswin64c`, then `gswin32c`,
+  then by globbing `C:\Program Files\gs\gs*\bin`, because that version number is
+  not something anyone can put on `PATH` in advance.
+- **`PATH` is split on the platform's separator**, and `PATHEXT` suffixes are
+  tried: on Windows there is no file called `xelatex`, only `xelatex.exe`, so every
+  lookup used to fall through to the bare name.
+- **`Path` works as well as `PATH`**, and the TeX install directories of TeX Live,
+  MiKTeX and TinyTeX are probed when the installer did not update `PATH`.
+- **A rebuild no longer loses the baseline snapshot.** `rename` onto an existing
+  file fails on Windows; the snapshot is written every build under one name, so the
+  second build onwards failed silently. It unlinks first, and retries briefly
+  because an indexer holding the file is a matter of milliseconds.
+- **Timeouts kill the whole process tree** (`taskkill /T`) instead of the direct
+  child, which left `latexmk`'s children running and holding the `.pdf` open.
+- **No console window flashes** on every compile and render (`windowsHide`).
+- **`\r\n` in the TeX log is normalised** before parsing, so no message ends in a
+  carriage return the reader cannot see.
+- Not changed, and verified rather than assumed: PostScript escaping of the PDF
+  path already doubles backslashes, so `C:\Users\...` inside a gs `-c` string
+  works — now covered by a test that runs a document in a directory whose name
+  contains a backslash.
+
+Windows is covered by a real `windows-latest` CI job (Ghostscript + TinyTeX, then
+compile, render, locate and speak MCP), not by reasoning about the code.
+
 # Changelog
 
 ## 0.4.0
