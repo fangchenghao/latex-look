@@ -1,0 +1,30 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.fangchenghao/latex-look",
+  "title": "LaTeX Look",
+  "description": "Compile a LaTeX page, see it rendered, map a PDF point back to source, and diff builds.",
+  "repository": {
+    "url": "https://github.com/fangchenghao/latex-look",
+    "source": "github"
+  },
+  "websiteUrl": "https://github.com/fangchenghao/latex-look",
+  "version": "0.4.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@fffangchenghao/dsh-latex-look",
+      "version": "0.4.0",
+      "runtimeHint": "npx",
+      "transport": {
+        "type": "stdio"
+      },
+      "packageArguments": [
+        {
+          "type": "positional",
+          "value": "mcp",
+          "valueHint": "command"
+        }
+      ]
+    }
+  ]
+}

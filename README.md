@@ -140,6 +140,8 @@ sudo apt install texlive-xetex ghostscript        # Debian/Ubuntu
 
 Nothing is uploaded: every call compiles the document that is already on your disk.
 
+Listed in the official [MCP Registry](https://registry.modelcontextprotocol.io) as `io.github.fangchenghao/latex-look`, so clients that search the registry can install it by name, and on [awesome-mcp-servers](https://github.com/punkpeye/awesome-mcp-servers).
+
 ## Tests
 
 Three suites run on a clean checkout — they create their own fixtures and compile

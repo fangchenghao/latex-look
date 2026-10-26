@@ -105,6 +105,7 @@ args = ["-y", "@fffangchenghao/dsh-latex-look", "mcp"]
 
 三种形态共用一个 `lib/core.mjs`：同样的测量、同样的措辞、同样的坑。它只暴露一个工具
 `latex_look`，参数与插件完全一致；页面以图片内容块返回，模型直接看见那一页。
+已收录进官方 [MCP Registry](https://registry.modelcontextprotocol.io)，名称 `io.github.fangchenghao/latex-look`——客户端可以直接按名字搜索安装；也已提交 [awesome-mcp-servers](https://github.com/punkpeye/awesome-mcp-servers)。
 
 Agent 的「眼睛」由工具提供；[`SKILL.md`](SKILL.md) 提供「看到症状之后怎么改」的知识——
 一份**症状 → 成因 → 修法**的手册，例如「读者说的那条横线通常是 `\pagestyle`/`fancyhdr`，
