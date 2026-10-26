@@ -36,8 +36,28 @@ jobs:
           Write-Host "ghostscript: $($gs.FullName)"
           "$($gs.FullName)\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
-          $tex = "$env:APPDATA\TinyTeX\bin\windows"
-          if (-not (Test-Path $tex)) { throw "TinyTeX not found at $tex" }
+          # Where the Chocolatey TinyTeX package unpacks is not obvious, and guessing
+          # it once already cost a run: ask the tree for xelatex.exe instead.
+          $tex = $null
+          foreach ($d in @(
+            "$env:APPDATA\TinyTeX\bin\windows",
+            "$env:LOCALAPPDATA\Programs\TinyTeX\bin\windows",
+            'C:\ProgramData\chocolatey\lib\tinytex\tools\TinyTeX\bin\windows',
+            'C:\ProgramData\chocolatey\lib\tinytex\tools\bin\windows'
+          )) {
+            if (Test-Path (Join-Path $d 'xelatex.exe')) { $tex = $d; break }
+          }
+          if (-not $tex) {
+            $hit = Get-ChildItem 'C:\ProgramData\chocolatey\lib\tinytex' -Recurse -Filter 'xelatex.exe' -ErrorAction SilentlyContinue |
+                   Select-Object -First 1
+            if ($hit) { $tex = $hit.DirectoryName }
+          }
+          if (-not $tex) {
+            Write-Host 'tree under the chocolatey tinytex package:'
+            Get-ChildItem 'C:\ProgramData\chocolatey\lib\tinytex' -Directory -ErrorAction SilentlyContinue |
+              Select-Object -First 20 | ForEach-Object { Write-Host "  $($_.FullName)" }
+            throw 'xelatex.exe not found after installing tinytex'
+          }
           Write-Host "tex: $tex"
           $tex | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
