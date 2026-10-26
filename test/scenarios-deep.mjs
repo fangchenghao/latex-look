@@ -417,7 +417,9 @@ VERSION-TWO
   // Printing "0.00%" turned a page number that moved on every page into "your edit
   // did nothing". The formatter must keep the precision the change deserves, and say
   // how many pixels moved.
-  const f = mod.formatDiff || (await import(pathToFileURL(join(WORK, 'index.js')).href)).formatDiff
+    // formatDiff moved out of index.js when the CLI and the MCP server started sharing
+    // it; the fallback kept looking in the old place and only turned up undefined.
+    const { formatDiff: f } = await import(pathToFileURL(join(WORK, 'lib/format.mjs')).href)
   const tiny = f({ changedRatio: 0.000043, changedPixels: 18 })
   const zero = f({ changedRatio: 0, changedPixels: 0 })
   const normal = f({ changedRatio: 0.1023, changedPixels: 40000 })
