@@ -1,0 +1,77 @@
+name: windows
+
+# The plugin was developed and tested on macOS, where `gs` is called `gs`, PATH is
+# split on ':', and a rename replaces the target. None of the three holds on
+# Windows, and no amount of reading the code proves the fixes land: this job
+# compiles a document, renders it, locates a point and runs the MCP server on a
+# real Windows runner.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Ghostscript and TinyTeX
+        run: |
+          choco install ghostscript -y --no-progress
+          choco install tinytex -y --no-progress
+
+      - name: Put Ghostscript and TeX on PATH
+        shell: pwsh
+        run: |
+          $gs = Get-ChildItem 'C:\Program Files\gs' -Directory -ErrorAction SilentlyContinue |
+                Sort-Object Name -Descending | Select-Object -First 1
+          if (-not $gs) { throw 'ghostscript installed but C:\Program Files\gs is empty' }
+          Write-Host "ghostscript: $($gs.FullName)"
+          "$($gs.FullName)\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+          $tex = "$env:APPDATA\TinyTeX\bin\windows"
+          if (-not (Test-Path $tex)) { throw "TinyTeX not found at $tex" }
+          Write-Host "tex: $tex"
+          $tex | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Show what the resolver finds
+        shell: pwsh
+        run: |
+          # Deliberately before adding anything to PATH in this shell: the point is
+          # that the resolver's own fallbacks work, which is what a fresh install
+          # on a machine whose PATH was not updated by the installer needs.
+          node --input-type=module -e "
+            import { resolveBinary, findGhostscript } from './lib/core.mjs'
+            for (const b of ['xelatex', 'pdflatex', 'synctex']) {
+              console.log(b.padEnd(10), resolveBinary(b))
+            }
+            console.log('gs'.padEnd(10), findGhostscript())
+          "
+
+      - name: Platform tests (resolver, escaped paths, a real compile and render)
+        run: node test/platform.mjs
+
+      - name: MCP server over stdio
+        run: node test/mcp.mjs
+
+      - name: The CLI, as a user would call it
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path $env:TEMP\llwin | Out-Null
+          @'
+          \documentclass{article}
+          \begin{document}
+          \noindent\rule{\textwidth}{0.4pt}
+          Windows check.
+          \end{document}
+          '@ | Set-Content -Encoding utf8 $env:TEMP\llwin\w.tex
+          node bin/latex-look.mjs $env:TEMP\llwin\w.tex --page 1
+          node bin/latex-look.mjs $env:TEMP\llwin\w.tex --page 1 --point 300 78
+          node bin/latex-look.mjs $env:TEMP\llwin\w.tex --version
