@@ -31,7 +31,18 @@ jobs:
           if (p.version !== tag) { console.error('tag ' + tag + ' != package.json ' + p.version); process.exit(1) }
           "
       - run: npm test
-      - run: npm publish --access public
+      # A tag can be pushed for a version that was published by hand, and then this
+      # job would fail on a version that already exists — reporting a broken release
+      # that is in fact fine. Publish only what is missing.
+      - name: Publish to npm, unless this exact version is already there
+        run: |
+          name=$(node -p 'require("./package.json").name')
+          version=$(node -p 'require("./package.json").version')
+          if npm view "$name@$version" version >/dev/null 2>&1; then
+            echo "$name@$version is already on npm; not republishing"
+          else
+            npm publish --access public
+          fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
