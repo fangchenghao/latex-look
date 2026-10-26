@@ -1,10 +1,9 @@
 name: windows
 
-# The plugin was developed and tested on macOS, where `gs` is called `gs`, PATH is
+# The plugin was developed on macOS, where Ghostscript is called `gs`, PATH is
 # split on ':', and a rename replaces the target. None of the three holds on
-# Windows, and no amount of reading the code proves the fixes land: this job
-# compiles a document, renders it, locates a point and runs the MCP server on a
-# real Windows runner.
+# Windows, and reading the code does not prove the fixes land: this job compiles a
+# document, renders it, locates a point and speaks MCP on a real Windows runner.
 
 on:
   push:
@@ -36,22 +35,37 @@ jobs:
           Write-Host "ghostscript: $($gs.FullName)"
           "$($gs.FullName)\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
-          $tex = "$env:APPDATA\TinyTeX\bin\windows"
-          if (-not (Test-Path $tex)) { throw "TinyTeX not found at $tex" }
+          # Where the Chocolatey TinyTeX package unpacks is not documented, and
+          # guessing it once already cost a run: ask the tree for xelatex.exe.
+          $tex = $null
+          foreach ($d in @(
+            "$env:APPDATA\TinyTeX\bin\windows",
+            "$env:LOCALAPPDATA\Programs\TinyTeX\bin\windows",
+            'C:\ProgramData\chocolatey\lib\tinytex\tools\TinyTeX\bin\windows',
+            'C:\ProgramData\chocolatey\lib\tinytex\tools\bin\windows'
+          )) {
+            if (Test-Path (Join-Path $d 'xelatex.exe')) { $tex = $d; break }
+          }
+          if (-not $tex) {
+            $hit = Get-ChildItem 'C:\ProgramData\chocolatey\lib\tinytex' -Recurse -Filter 'xelatex.exe' -ErrorAction SilentlyContinue |
+                   Select-Object -First 1
+            if ($hit) { $tex = $hit.DirectoryName }
+          }
+          if (-not $tex) {
+            Write-Host 'tree under the chocolatey tinytex package:'
+            Get-ChildItem 'C:\ProgramData\chocolatey\lib\tinytex' -Recurse -Depth 2 -ErrorAction SilentlyContinue |
+              Select-Object -First 25 | ForEach-Object { Write-Host "  $($_.FullName)" }
+            throw 'xelatex.exe not found after installing tinytex'
+          }
           Write-Host "tex: $tex"
           $tex | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Show what the resolver finds
         shell: pwsh
         run: |
-          # Deliberately before adding anything to PATH in this shell: the point is
-          # that the resolver's own fallbacks work, which is what a fresh install
-          # on a machine whose PATH was not updated by the installer needs.
           node --input-type=module -e "
             import { resolveBinary, findGhostscript } from './lib/core.mjs'
-            for (const b of ['xelatex', 'pdflatex', 'synctex']) {
-              console.log(b.padEnd(10), resolveBinary(b))
-            }
+            for (const b of ['xelatex', 'pdflatex', 'synctex']) console.log(b.padEnd(10), resolveBinary(b))
             console.log('gs'.padEnd(10), findGhostscript())
           "
 
@@ -64,14 +78,15 @@ jobs:
       - name: The CLI, as a user would call it
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path $env:TEMP\llwin | Out-Null
-          @'
+          New-Item -ItemType Directory -Force -Path "$env:RUNNER_TEMP\llwin" | Out-Null
+          $tex = @'
           \documentclass{article}
           \begin{document}
           \noindent\rule{\textwidth}{0.4pt}
           Windows check.
           \end{document}
-          '@ | Set-Content -Encoding utf8 $env:TEMP\llwin\w.tex
-          node bin/latex-look.mjs $env:TEMP\llwin\w.tex --page 1
-          node bin/latex-look.mjs $env:TEMP\llwin\w.tex --page 1 --point 300 78
-          node bin/latex-look.mjs $env:TEMP\llwin\w.tex --version
+          '@
+          Set-Content -Path "$env:RUNNER_TEMP\llwin\w.tex" -Value $tex -Encoding ascii
+          node bin/latex-look.mjs "$env:RUNNER_TEMP\llwin\w.tex" --page 1
+          node bin/latex-look.mjs "$env:RUNNER_TEMP\llwin\w.tex" --page 1 --point 300 78
+          node bin/latex-look.mjs "$env:RUNNER_TEMP\llwin\w.tex" --version
