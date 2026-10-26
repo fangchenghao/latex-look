@@ -21,10 +21,10 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install Ghostscript and TinyTeX
+      - name: Install Ghostscript and MiKTeX
         run: |
           choco install ghostscript -y --no-progress
-          choco install tinytex -y --no-progress
+          choco install miktex -y --no-progress
 
       - name: Put Ghostscript and TeX on PATH
         shell: pwsh
@@ -35,28 +35,24 @@ jobs:
           Write-Host "ghostscript: $($gs.FullName)"
           "$($gs.FullName)\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
-          # Where the Chocolatey TinyTeX package unpacks is not documented, and
-          # guessing it once already cost a run: ask the tree for xelatex.exe.
+          # Where the Chocolatey package puts TeX is not something to guess: search
+          # the usual roots and report what was found either way.
+          $roots = @(
+            'C:\Program Files\MiKTeX',
+            'C:\texlive',
+            'C:\ProgramData\chocolatey\lib\miktex',
+            "$env:APPDATA\TinyTeX",
+            "$env:LOCALAPPDATA\Programs\TinyTeX"
+          )
           $tex = $null
-          foreach ($d in @(
-            "$env:APPDATA\TinyTeX\bin\windows",
-            "$env:LOCALAPPDATA\Programs\TinyTeX\bin\windows",
-            'C:\ProgramData\chocolatey\lib\tinytex\tools\TinyTeX\bin\windows',
-            'C:\ProgramData\chocolatey\lib\tinytex\tools\bin\windows'
-          )) {
-            if (Test-Path (Join-Path $d 'xelatex.exe')) { $tex = $d; break }
-          }
-          if (-not $tex) {
-            $hit = Get-ChildItem 'C:\ProgramData\chocolatey\lib\tinytex' -Recurse -Filter 'xelatex.exe' -ErrorAction SilentlyContinue |
+          foreach ($r in $roots) {
+            if (-not (Test-Path $r)) { Write-Host "absent: $r"; continue }
+            $hit = Get-ChildItem $r -Recurse -Filter 'xelatex.exe' -ErrorAction SilentlyContinue |
                    Select-Object -First 1
-            if ($hit) { $tex = $hit.DirectoryName }
+            if ($hit) { Write-Host "found: $($hit.FullName)"; $tex = $hit.DirectoryName; break }
+            Write-Host "no xelatex.exe under: $r"
           }
-          if (-not $tex) {
-            Write-Host 'tree under the chocolatey tinytex package:'
-            Get-ChildItem 'C:\ProgramData\chocolatey\lib\tinytex' -Recurse -Depth 2 -ErrorAction SilentlyContinue |
-              Select-Object -First 25 | ForEach-Object { Write-Host "  $($_.FullName)" }
-            throw 'xelatex.exe not found after installing tinytex'
-          }
+          if (-not $tex) { throw 'no xelatex.exe under any of the usual TeX roots' }
           Write-Host "tex: $tex"
           $tex | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
