@@ -39,8 +39,11 @@ const BASE = String.raw`\documentclass[UTF8]{ctexart}
 `
 
 let failures = 0
-const check = (name, fn) => {
-  try { fn(); console.log(`  ok   ${name}`) } catch (e) { failures++; console.log(`  FAIL ${name}: ${e.message}`) }
+// Await the body. A synchronous `check` returned as soon as an async test body hit its
+// first await, so the test ran on in the background, raced the temp-directory cleanup,
+// and printed "ok" without a single assertion having executed.
+const check = async (name, fn) => {
+  try { await fn(); console.log(`  ok   ${name}`) } catch (e) { failures++; console.log(`  FAIL ${name}: ${e.message}`) }
 }
 
 try {
