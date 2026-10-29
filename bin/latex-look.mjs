@@ -7,7 +7,7 @@
  *   latex-look book.tex --page 12 --compare previous --json
  */
 import { look } from '../lib/core.mjs'
-import { checkForUpdate, currentVersion } from '../lib/update.mjs'
+import { checkForUpdate, currentVersion, upgradeCommand } from '../lib/update.mjs'
 import { serveStdio } from '../lib/mcp.mjs'
 
 // `latex-look mcp` is the Model Context Protocol server: one command a client can
@@ -132,7 +132,12 @@ function summary(r) {
       const r = await checkForUpdate({ ttlMs: 0 })
       // "Up to date" would be a lie when the registry never answered.
       if (r.error && !r.latest) console.log(`could not check: ${r.error}`)
-      else if (r.outdated) console.log(`update available: ${r.latest} (running ${r.current})`)
+      else if (r.outdated) {
+        console.log(`update available: ${r.latest} (running ${r.current})`)
+        // The one thing this process can usefully add: how, for this installation.
+        const how = upgradeCommand()
+        if (how) console.log(`upgrade with: ${how}`)
+      }
       else console.log(`up to date: ${r.current}${r.error ? ` (registry said ${r.error}, cached answer)` : ''}`)
     }
     process.exit(0)

@@ -1,3 +1,22 @@
+## 0.4.2 — the version it is running, not the version on disk
+
+An automatic update replaces the package directory while the old code keeps running.
+The running code then read its version back off the new `package.json` and reported
+the new number, so after an update that had not been loaded yet everything still
+looked current — including "up to date" from `--check-update`.
+
+- **The running version is read once, at start-up**, so it keeps meaning "what this
+  process is running". `versionOnDisk()` asks the other question.
+- **A restart is reported.** When the disk holds something newer than the process,
+  one line appears in the tool reply and in the log: `0.4.2 is installed on disk, but
+  this process is still running 0.4.1 — restart DeepSeek Harness to load it.`
+- **The upgrade command names the real profile**, derived from the plugin's own path
+  (`~/.dsh/profiles/<name>/node_modules/…`). No command is printed when that cannot
+  be told, which is the case for a tarball, a git checkout, or `npx`.
+- **The advice is no longer wrong.** It used to say "upgrade it with the plugin
+  manager", which is not how the bundle in this profile updates: an updater plugin
+  does that. The note now states what happened and what to do about it.
+
 ## 0.4.1 — Windows
 
 The plugin was written on macOS, where Ghostscript is called `gs`, `PATH` is split

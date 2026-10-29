@@ -62,19 +62,44 @@ plugin_manager  action: install_bundle  target: @fffangchenghao/dsh-latex-look
 
 ### Updating
 
-The plugin checks the registry **once a day, in the background**, and appends a single line to a tool reply when a newer release exists — no repeated nagging, and an offline machine sees nothing at all. To upgrade, install the same bundle again:
+Two different facts, and the plugin reports them separately because confusing them is
+how an update goes missing:
+
+**A newer release exists.** The registry is asked once a day, in the background; when
+something newer is published, one line is appended to a tool reply. An offline machine
+sees nothing at all, and an unreachable registry is never reported as "up to date".
+
+**A newer release is already installed.** This is the one that silently bites. An
+updater replaces the package directory while the old code keeps running, so the
+running code goes on reading its version out of a `package.json` that was swapped
+underneath it — it reports the *new* number while executing the *old* code, and
+everything looks current. The plugin therefore remembers the version it started with,
+re-reads the disk at most once a minute, and when the two disagree says so:
 
 ```
-plugin_manager  action: install_bundle  target: @fffangchenghao/dsh-latex-look
+note: @fffangchenghao/dsh-latex-look 0.4.2 is installed on disk, but this process is
+still running 0.4.1 — restart DeepSeek Harness to load it.
 ```
 
-On a live profile the upgrade applies immediately; the harness reloads the module generation on the next start, because `core.mjs` (unlike `index.js`) is not hot-reloaded.
-
-From a checkout, the check is available directly:
+The plugin does not update itself. Replacing the files of a running process is the
+profile's job, not a tool's: an updater plugin already installed in the profile does
+it, or you do it by hand. When the plugin can tell which profile it was installed
+into, it prints the exact command — the profile name is read off its own path,
+because they are called `desktop` and `web` and a guess sends you to an install that
+does nothing:
 
 ```bash
-npx latex-look --version
-npx latex-look --check-update
+dsh plugin --profile desktop add @fffangchenghao/dsh-latex-look@latest
+```
+
+`core.mjs` is not hot-reloaded, so a plugin update takes effect on the next start of
+the harness, never mid-session.
+
+From a checkout, both questions are available directly:
+
+```bash
+node bin/latex-look.mjs --version
+node bin/latex-look.mjs --check-update
 ```
 
 ### Releasing

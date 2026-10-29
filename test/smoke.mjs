@@ -3,7 +3,7 @@
  * Run with: node test/smoke.mjs
  */
 import assert from 'node:assert/strict'
-import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
+import { copyFile, mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 
@@ -11,7 +11,7 @@ const execFileAsync = promisify(execFile)
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { look, locateText, pageCarryingText } from '../lib/core.mjs'
-import { compareVersions, parseVersion } from '../lib/update.mjs'
+import { compareVersions, parseVersion, restartNote, upgradeCommand } from '../lib/update.mjs'
 import { classifyInk, textLayerHealth } from '../lib/core.mjs'
 
 const dir = await mkdtemp(join(tmpdir(), 'latex-look-test-'))
@@ -322,6 +322,58 @@ ${filler}
     }
     assert.equal(orderBad.sequence.inversions.length, 1, JSON.stringify(orderBad.sequence))
     assert.equal(orderBad.sequence.inversions[0].before.label, '图 1-2')
+  })
+
+  // ---- 12g. the version question an automatic update asks ----------------------
+  // An updater replaces the package directory while the old code keeps running, so
+  // "which version am I" and "which version is on disk" stop agreeing. Every note
+  // here exists to keep those two apart instead of reporting the second as the first.
+  check('a newer version on disk than in the process says to restart', () => {
+    assert.match(restartNote('0.4.1', '0.4.2'), /restart/i)
+  })
+  check('the same version on disk says nothing', () => {
+    assert.equal(restartNote('0.4.2', '0.4.2'), null)
+  })
+  check('an older version on disk is not a restart', () => {
+    assert.equal(restartNote('0.4.2', '0.4.1'), null)
+  })
+  check('an unknown version says nothing rather than guessing', () => {
+    assert.equal(restartNote('0.0.0', ''), null)
+    assert.equal(restartNote(null, '0.4.2'), null)
+  })
+
+  // The command has to name the real profile: they are called desktop and web, and a
+  // guessed one would send the reader to an install that does nothing.
+  check('the upgrade command names the profile it was installed into', () => {
+    const posix = upgradeCommand('file:///Users/x/.dsh/profiles/desktop/node_modules/@fffangchenghao/dsh-latex-look/index.js')
+    assert.match(posix, /--profile desktop /)
+    assert.match(posix, /@latest$/)
+    const win = upgradeCommand('file:///C:/Users/x/.dsh/profiles/web/node_modules/@fffangchenghao/dsh-latex-look/index.js')
+    assert.match(win, /--profile web /)
+  })
+  check('an installation outside a profile gets no command', () => {
+    assert.equal(upgradeCommand('file:///tmp/pkg/index.js'), null)
+  })
+
+  // The end-to-end shape of the bug, in a subprocess because it needs a version that
+  // changes underneath a running process: read 0.4.1, then put 0.4.2 on disk, then
+  // ask. A cache would answer 0.4.1 and hide the update.
+  const restageDir = join(dir, 'restage')
+  await mkdir(join(restageDir, 'lib'), { recursive: true })
+  await copyFile(new URL('../lib/update.mjs', import.meta.url), join(restageDir, 'lib', 'update.mjs'))
+  await writeFile(join(restageDir, 'package.json'), JSON.stringify({ name: 'probe', version: '0.4.1' }))
+  await writeFile(join(restageDir, 'probe.mjs'), `
+    import { writeFileSync } from 'node:fs'
+    import { currentVersion, restartPending } from './lib/update.mjs'
+    const started = await currentVersion()
+    writeFileSync(new URL('./package.json', import.meta.url), JSON.stringify({ name: 'probe', version: '0.4.2' }))
+    console.log(JSON.stringify({ started, note: await restartPending() }))
+  `)
+  const { stdout: probeOut } = await execFileAsync(process.execPath, [join(restageDir, 'probe.mjs')], { cwd: restageDir })
+  const probe = JSON.parse(probeOut.trim().split('\n').pop())
+  check('an update installed under a running process is reported', () => {
+    assert.equal(probe.started, '0.4.1', 'the running version changed while the process ran')
+    assert.match(probe.note, /0\.4\.2.*restart/i)
   })
 
   // ---- 13. version ordering for the update check -----------------------------

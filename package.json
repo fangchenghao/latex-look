@@ -1,6 +1,6 @@
 {
   "name": "@fffangchenghao/dsh-latex-look",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "See what a LaTeX page actually looks like: compile, render the page to an image, map a point or text anchor back to the source line, and diff the page against the previous build. CLI, MCP server and DSH plugin over one core.",
   "type": "module",
   "license": "MIT",

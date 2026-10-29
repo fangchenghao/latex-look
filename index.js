@@ -5,17 +5,49 @@ import { defineTool } from '@deepseek-ai/dsh-tools'
 
 import { ENGINES, look } from './lib/core.mjs'
 import { formatDiff, formatResult } from './lib/format.mjs'
-import { checkForUpdate } from './lib/update.mjs'
+import { PACKAGE, checkForUpdate, restartPending, upgradeCommand } from './lib/update.mjs'
 
 // The plugin id, deliberately unchanged when the package moved to a scope: profile
 // config, enable state and the bundle row (`id: latex-look`) all key off it, and a
 // reader does not care what a package is called. The npm name lives in package.json.
 export const name = 'dsh-latex-look'
 
-// Set once, in the background, the first time the plugin loads. Appended to a tool
-// reply rather than logged on every call: a note that repeats on every render is
-// noise, and these replies are read closely for the diff.
-let updateHint = null
+// What to say about versions, worked out at most once a minute while the tool is in
+// use. Two different situations, and telling them apart is the whole point:
+//
+//   - a newer release exists on npm       → it is not here yet
+//   - a newer release is already on disk  → it is here, this process is not running it
+//
+// The second is what an automatic update leaves behind, and it stays invisible
+// unless the disk is asked: the running code reads its version off a package.json
+// that was replaced underneath it, so it happily reports the new number while
+// executing the old code.
+let versionNote = null
+let versionNoteAt = 0
+
+async function currentVersionNote() {
+  if (Date.now() - versionNoteAt < 60_000) return versionNote
+  versionNoteAt = Date.now()
+  const [restart, release] = await Promise.all([
+    restartPending().catch(() => null),
+    checkForUpdate().catch(() => null),
+  ])
+  // An update already on disk that has not been loaded is the whole story; also
+  // announcing that npm has that same version would say it twice.
+  if (restart) {
+    versionNote = restart
+    return versionNote
+  }
+  if (release && release.outdated && release.latest) {
+    const how = upgradeCommand()
+    versionNote =
+      `note: ${PACKAGE} ${release.latest} is published; this process is running ${release.current}.` +
+      (how ? ` Upgrade with: ${how}` : ' Upgrading is a profile install; the new code loads on restart.')
+    return versionNote
+  }
+  versionNote = null
+  return versionNote
+}
 
 // `tools` to register latex_look; `systemPrompt` so the "look before you claim
 // it is done" discipline is unconditional rather than dependent on the skill
@@ -48,12 +80,11 @@ export function apply(ctx) {
   ctx.systemPrompt.section({ name: 'tool:latex-look', order: 1100, text: SYSTEM_PROMPT })
 
   // Fire and forget: plugin load must not wait on the network, and a registry outage
-  // must never look like a broken tool.
-  checkForUpdate()
-    .then((r) => {
-      if (!r.outdated || !r.latest) return
-      updateHint = `note: @fffangchenghao/dsh-latex-look ${r.latest} is available (this is ${r.current}); upgrade it with the plugin manager.`
-      ctx.logger?.info?.(`[latex-look] ${r.latest} available (running ${r.current})`)
+  // must never look like a broken tool. The answer is not thrown away any more —
+  // it feeds currentVersionNote(), which the reply picks up.
+  currentVersionNote()
+    .then((note) => {
+      if (note) ctx.logger?.info?.(`[latex-look] ${note}`)
     })
     .catch(() => {})
 
@@ -170,7 +201,7 @@ export function apply(ctx) {
             auditBlankMm: clampInt(args.auditBlankMm, 5, 200, 30),
             sequence: args.sequence ? String(args.sequence) : null,
           })
-          return formatResult(result, { hint: updateHint })
+          return formatResult(result, { hint: await currentVersionNote() })
         } catch (e) {
           return `latex_look: ${e instanceof Error ? e.message : String(e)}`
         }
