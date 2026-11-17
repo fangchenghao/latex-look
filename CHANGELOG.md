@@ -1,3 +1,62 @@
+# Changelog
+
+## Unreleased — answers that came from the wrong place
+
+Every defect below was reproduced before it was fixed, against real documents.
+
+- **Page text survived a rebuild.** The per-page text cache was keyed on the PDF's
+  path, which `look()` writes to again on every build. After an edit it answered with
+  the text of the page as it used to be, so `pageCarryingText` "confirmed" a caption
+  was on the page it had already left: `--text` reported `→ page 1` —
+  `pageVerified` — for a caption that had moved to page 2. That is a check reporting
+  success without having run, which is the one outcome this tool exists to prevent.
+  The key now carries the PDF's mtime and size, and the cache is bounded.
+- **`compare: <path>` was ignored.** The pre-build snapshot was published over the
+  caller's baseline whenever a build happened, so pointing `compare` at another PDF
+  diffed the new page against its own pre-edit self: a completely different document
+  measured 0.02% and read as "nothing changed". The snapshot is now published only
+  when the caller asked for `previous`.
+- **`sequence` passed on the documented example.** The separator between chapter and
+  number was `-`, `–`, `—` only, though README and `SKILL.md` both give
+  `Figure 3.2`. A dotted document reported `0 label(s), all in reading order` — a pass
+  for a scan that matched nothing, on a page with two captions in front of it. `.` and
+  `·` are accepted, and **zero matches now declines** with what was searched.
+- **A point lookup with `--point 300 78` silently located nothing.** Only the comma
+  form parsed; the space form became `y = NaN`, the point branch was skipped, and the
+  run exited 0 with no LOCATED section. Both spellings work; a malformed point is
+  refused with its own message instead of being ignored.
+- **Two documents called `main.tex` shared one PNG path.** Renders were named after
+  the PDF's basename under a per-process directory, so a second document's look
+  replaced the image the first call had already returned. Renders now live in a
+  per-document subdirectory.
+- **An out-of-range page with a point threw ENOENT.** `gs` exits 0 having written
+  nothing, and `renderPpm` read the absent file: `--page 99 --point 80,110` on a
+  two-page document died with `ENOENT ... -p99.ppm` instead of saying the page is out
+  of range. Also fixes a same-millisecond temp-name collision between two renders of
+  one page.
+- **`--engine latexmk` failed a correct table of contents.** `passes < 2` was judged
+  on the count of *this tool's* engine invocations, but `latexmk` and `tectonic`
+  converge inside one: a first build with a TOC was reported
+  `the table of contents page is EMPTY ... maxPasses allowed only 1`, exit code 2, on
+  a PDF that carried the TOC. The pass-count rule now applies only to the engines
+  whose passes are actually counted; `tocExpected && !tocEntries` still fails a
+  genuinely empty TOC.
+- **`replaceFile` wiped its target when the source was missing.** `rm(to)` ran before
+  the rename, so publishing a snapshot that was never written deleted the last good
+  baseline. A missing source is now a no-op.
+- **`page must be a whole number, got NaN`** hid the value the caller typed; it now
+  echoes `2.5`.
+- **The CLI allowed 300 s per pass while `--help`, `SKILL.md` and the plugin all said
+  120.** It now passes 120. The plugin's own `timeoutSeconds` description said 300
+  while its code clamped to 120; the description is corrected.
+- `--audit`, `--audit-blank` and `--sequence` were missing from `--help`, though the
+  README's CLI example uses `--audit`.
+- **New `test/cli.mjs`** drives the real binary's argv handling; nothing did before,
+  which is why the `--point` regression was invisible. Plus regression tests in
+  `test/smoke.mjs` (page text after a rebuild, `replaceFile`) and
+  `test/scenarios-deep.mjs` (dot-numbered sequence, zero-match decline, same-basename
+  images, `compare` to another file).
+
 ## 0.4.2 — the version it is running, not the version on disk
 
 An automatic update replaces the package directory while the old code keeps running.
@@ -49,8 +108,6 @@ so a machine with Ghostscript installed was told it had none.
 
 Windows is covered by a real `windows-latest` CI job (Ghostscript + TinyTeX, then
 compile, render, locate and speak MCP), not by reasoning about the code.
-
-# Changelog
 
 ## 0.4.0
 

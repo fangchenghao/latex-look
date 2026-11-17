@@ -176,14 +176,17 @@ Listed in the official [MCP Registry](https://registry.modelcontextprotocol.io) 
 
 ## Tests
 
-Three suites run on a clean checkout — they create their own fixtures and compile
-real documents, so expect a few minutes:
+Five suites run on a clean checkout — they create their own fixtures and compile
+real documents, so expect a few minutes (`npm test` runs exactly these, in this order):
 
 ```bash
+node test/platform.mjs        # win32 branches of PATH/PATHEXT/Ghostscript lookup, on any OS
 node test/smoke.mjs           # unit level: problem parsing, PPM, raster diff, aux detection
 node test/scenarios.mjs       # 52 end-to-end cases driven through index.js
-node test/scenarios-deep.mjs  # 29 cases: multi-file papers, beamer, twocolumn, images,
+node test/scenarios-deep.mjs  # 34 cases: multi-file papers, beamer, twocolumn, images,
                               #   engine switching, the build cache, hostile inputs
+node test/cli.mjs             # the CLI's own argument handling, through the real binary
+node test/mcp.mjs             # the MCP server on the wire: handshake, schema, real call
 node test/book-scenarios.mjs  # 15 cases against a real 208-page book (164 .tex files)
 node test/book-tasks.mjs      # 18 real editing tasks on the same book (see below)
 LATEX_LOOK_BOOK=/pristine/copy node test/book-tasks.mjs   # point it at an unedited copy
@@ -334,7 +337,11 @@ Coordinates are PDF points (72/inch) with the origin at the **top-left** of the 
 - A `%` in a *file name* defeats the TeX engine itself (`! Emergency stop.`), so no tool can help there. A `%` in a directory name is fine.
 - If the compile fails without writing a new PDF, the stale PDF on disk is **not** rendered and no diff is reported — the tool says so instead. Otherwise an unchanged file would read as "0% changed", i.e. "your edit did nothing".
 - `engine` accepts only the engines in this tool's list (`auto` or a known name); it is never passed to `spawn` unchecked.
-- Rendered PNGs stay under `TMPDIR/latex-look-<pid>/` because the agent opens them after the call returns. Nothing prunes that directory.
+- Rendered PNGs stay under `TMPDIR/latex-look-<pid>/<hash of the document path>/` because
+  the agent opens them after the call returns. Nothing prunes that directory. The
+  per-document level exists because two projects whose main files are both `main.tex`
+  otherwise wrote to one PNG path, and the second look silently replaced the image the
+  first call had already handed back.
 - The build cache tracks the document, its `\input`/`\include` targets, its `\includegraphics` files and its aux files. A `.sty` that changed, or a file pulled in through a macro rather than a literal `\input{...}`, is not tracked — pass `fresh: true` if you suspect a stale build.
 - `maxPasses: 1` on a document with `\tableofcontents` is reported as an error when no `.toc` existed before, and as a warning otherwise: the `.toc` file is written *after* the TOC page is typeset, so one pass reliably produces a blank TOC page.
 

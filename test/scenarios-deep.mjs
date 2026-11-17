@@ -142,6 +142,32 @@ Through a symlink.
 Read only directory.
 \end{document}
 `,
+  // Two documents that share a basename. `renderPage` names the PNG after the PDF's
+  // basename, so under one per-process output directory the second look overwrote
+  // the image the first call had already handed back — the agent opened a picture of
+  // a different document.
+  'samebase/a/main.tex': String.raw`\documentclass{article}
+\begin{document}
+AAAAAAAAAAAAAAA
+\end{document}
+`,
+  'samebase/b/main.tex': String.raw`\documentclass{article}
+\begin{document}
+BBBBBBBBBBBBBBB
+\end{document}
+`,
+  // Figure 3.1, not 图 3-1: the separator between chapter and number is the
+  // document's choice, and the docs give "Figure 3.2" as the example.
+  'dotseq/d.tex': String.raw`\documentclass{article}
+\usepackage{float}
+\renewcommand{\thefigure}{\thesection.\arabic{figure}}
+\begin{document}
+\section{One}
+\begin{figure}[H]\caption{first caption}\end{figure}
+\section{Two}
+\begin{figure}[H]\caption{second caption}\end{figure}
+\end{document}
+`,
 }
 
 rmSync(S, { recursive: true, force: true })
@@ -428,6 +454,74 @@ VERSION-TWO
     !!f && tiny.includes('0.004%') && tiny.includes('18 px') && !tiny.includes('0.00%') &&
       zero.includes('no pixel differs') && normal.includes('10.23%'),
     `tiny="${tiny}" zero="${zero}"`)
+}
+
+// --- E. checks that used to answer without having run ----------------------
+{
+  // "0 label(s), all in reading order" on a page carrying two captions: the dot
+  // separator (`\thesection.\arabic{figure}` → "Figure 1.1") was invisible, and a scan
+  // that matched nothing reported a pass. Both halves are asserted here.
+  const r = await call({ file: `${S}/dotseq/d.tex`, page: 1, sequence: 'Figure' })
+  const ordered = /ORDER: 2 Figure-label\(s\), all in reading order/.test(r.out)
+  const typo = await call({ file: `${S}/dotseq/d.tex`, page: 1, sequence: 'Figur' })
+  record('顺序: 点号编号（Figure 1.1）能被读出，而不是报 0 个全对',
+    !r.threw && ordered,
+    r.threw ? r.threw.message : (r.out.match(/ORDER.*/) || ['(no ORDER line)'])[0])
+  record('顺序: 一个标签都没匹配上时必须拒绝作答，不能报「全在顺序上」',
+    !typo.threw && /cannot check the order/.test(typo.out) && !/all in reading order/.test(typo.out),
+    typo.threw ? typo.threw.message : (typo.out.match(/ORDER.*/) || ['(no ORDER line)'])[0])
+}
+
+{
+  // Two documents called main.tex. The second look used to overwrite the image the
+  // first call returned, so opening the path the agent was given showed the wrong
+  // document. The paths must differ, and the first one must still hold its own page.
+  const first = await call({ file: `${S}/samebase/a/main.tex`, page: 1, compare: null })
+  const before = readFileSync(/image \(open it with an image reader\): (.+)/.exec(first.out)[1])
+  // warm the page-text cache the way a second call for the same PDF would
+  const second = await call({ file: `${S}/samebase/b/main.tex`, page: 1, compare: null })
+  const aPath = /image \(open it with an image reader\): (.+)/.exec(first.out)?.[1]
+  const bPath = /image \(open it with an image reader\): (.+)/.exec(second.out)?.[1]
+  const after = aPath ? readFileSync(aPath) : null
+  record('渲染: 两个同名 main.tex 不共用一张图（先返回的图不会被后一次调用覆盖）',
+    !!aPath && !!bPath && aPath !== bPath && !!after && after.equals(before),
+    `a=${aPath || 'none'} b=${bPath || 'none'} distinct=${aPath !== bPath} unchanged=${!!after && after.equals(before)}`)
+}
+
+{
+  // `compare: <a different PDF>` was overwritten by the internal pre-build snapshot
+  // whenever a build happened, so a different document's page diffed to the same few
+  // pixels as the caller's own last edit and read as "nothing changed".
+  const live = `${S}/cmpother/live.tex`
+  const other = `${S}/cmpother/other.tex`
+  mkdirSync(dirname(live), { recursive: true })
+  writeFileSync(live, String.raw`\documentclass{article}
+\begin{document}
+LIVE DOCUMENT page one.
+\end{document}
+`)
+  writeFileSync(other, String.raw`\documentclass{article}
+\begin{document}
+A COMPLETELY DIFFERENT DOCUMENT.
+With other words on it.
+\end{document}
+`)
+  await call({ file: live, page: 1, compare: null })
+  await call({ file: other, page: 1, compare: null })
+  writeFileSync(live, String.raw`\documentclass{article}
+\begin{document}
+LIVE DOCUMENT page one, EDITED.
+\end{document}
+`)
+  const r = await call({ file: live, page: 1, compare: `${S}/cmpother/other.pdf` })
+  const m = /DIFF: ([\d.]+)% of the page changed/.exec(r.out)
+  const ratio = m ? Number(m[1]) : null
+  // The pages differ over the whole first line; before the fix this measured the few
+  // pixels of "EDITED." added to the live document's own previous build.
+  const bb = /bbox x=[\d.]+ y=[\d.]+ w=([\d.]+) h=([\d.]+)/.exec(r.out)
+  record('对比: compare 指向另一个文件的 PDF 时，真的和那个文件比',
+    !r.threw && ratio !== null && Number(bb?.[1]) > 100,
+    r.threw ? r.threw.message : `changed=${ratio}% bboxW=${bb ? bb[1] : 'none'}`)
 }
 
 // --- summary ---------------------------------------------------------------

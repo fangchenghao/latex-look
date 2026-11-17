@@ -164,7 +164,7 @@ export function apply(ctx) {
         },
         timeoutSeconds: {
           type: 'number',
-          description: 'Per-pass time budget in seconds before the engine is killed. Defaults to 300.',
+          description: 'Per-pass time budget in seconds before the engine is killed. Defaults to 120.',
         },
       },
       output: {

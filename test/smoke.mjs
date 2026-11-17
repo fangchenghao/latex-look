@@ -441,6 +441,54 @@ ${filler}
     assert.match(r.audit.calibration, /cannot be the reference/)
   })
 
+  // ---- 19. replaceFile must not wipe the target when the source is gone -----
+  // `rm(to)` runs first because Windows will not rename onto an existing path. With a
+  // missing source that deleted the last good snapshot and then returned: the "compare
+  // to previous" baseline was destroyed by a build that had nothing to publish.
+  await check('replaceFile leaves the target alone when the source is missing', async () => {
+    const { replaceFile } = await import('../lib/core.mjs')
+    const to = join(dir, 'target.pdf')
+    await writeFile(to, 'old')
+    assert.equal(await replaceFile(join(dir, 'no-such-source.pdf'), to), false)
+    assert.equal(await readFile(to, 'utf8'), 'old')
+    const from = join(dir, 'source.pdf')
+    await writeFile(from, 'new')
+    assert.equal(await replaceFile(from, to), true)
+    assert.equal(await readFile(to, 'utf8'), 'new')
+  })
+
+  // ---- 20. the per-page text cache must not outlive a rebuild ---------------
+  // A path-only key answered from the previous build, so `pageCarryingText` confirmed a
+  // caption was on the page it had already left and the tool reported that page as
+  // verified. This is the check that must never pass without having run.
+  await check('page text is re-read after the PDF is rebuilt', async () => {
+    const { pdfPageText } = await import('../lib/core.mjs')
+    const f = join(dir, 'cachetext.tex')
+    await writeFile(f, String.raw`\documentclass{article}
+\begin{document}
+MARKER-ON-PAGE-ONE
+\newpage
+second page
+\end{document}
+`)
+    const a = await look(f, { page: 1, compare: null })
+    assert.equal(a.ok, true)
+    assert.match(await pdfPageText(a.pdf, 1), /MARKER-ON-PAGE-ONE/)
+    // move the marker to page 2 and rebuild in the same process
+    await writeFile(f, String.raw`\documentclass{article}
+\begin{document}
+first page
+\newpage
+MARKER-ON-PAGE-ONE
+\end{document}
+`)
+    const b = await look(f, { page: 1, compare: null })
+    assert.equal(b.ok, true)
+    assert.doesNotMatch(await pdfPageText(b.pdf, 1), /MARKER-ON-PAGE-ONE/,
+      'page 1 still reports text from the previous build')
+    assert.match(await pdfPageText(b.pdf, 2), /MARKER-ON-PAGE-ONE/)
+  })
+
   console.log(failures ? `\n${failures} check(s) failed` : '\nall checks passed')
 } finally {
   await rm(dir, { recursive: true, force: true })

@@ -52,6 +52,10 @@ or spacing, also look at one more page before claiming success.
 `\FloatBarrier`, `minipage`). Numbered objects must still appear in numerical order
 as the reader turns the pages; a float lands after any inline sibling that follows it
 in the source. `sequence: "图"` reports every inversion with both page numbers.
+Both `3-1` and `3.1` separators are read, so `sequence: "Figure"` works on a document
+that prints `Figure 3.2`. If **no** label matches, the reply says
+`cannot check the order` and why — that is a check that did not run, not a document
+in order, so fix the prefix before you read anything into it.
 
 7d. **A hole that survived the float is still a hole.** Floating moves the empty
 space, it does not delete it: if the text after the figure is short, the page still

@@ -152,7 +152,8 @@ function summary(r) {
   Options:
     --page <n>          page to render (default 1)
     --text <anchor>     locate this text and show the page it lands on
-    --point <x,y>       locate the source of a point (PDF points, origin top-left)
+    --point <x>,<y>     locate the source of a point (PDF points, origin top-left);
+                        "--point 300 78" is accepted too
     --compare <p>       'previous' (default) diffs against the PDF from before this
                         compile; or a path to another PDF
     --dpi <n>           render resolution (default 140)
@@ -160,6 +161,9 @@ function summary(r) {
     --max-passes <n>    max compile passes (default 3)
     --fresh             ignore the build cache and recompile
     --timeout <s>       per-pass time budget in seconds (default 120)
+    --audit             audit every page and report findings new since the last audit
+    --audit-blank <mm>  how deep a bottom hole must be to count (default 30)
+    --sequence <label>  reading order of "图 3-1"/"Figure 3.2"-style labels
     --json              machine-readable output
 
   Requires: a TeX engine, synctex, ghostscript.`)
@@ -167,8 +171,34 @@ function summary(r) {
   }
 
   const file = args._[0]
-  const at = args.text ? { text: args.text }
-    : args.point ? (([x, y]) => ({ x: Number(x), y: Number(y) }))(String(args.point).split(',')) : undefined
+  // `--point` accepts both spellings people use: `--point 300,78` (the usage text)
+  // and `--point 300 78` (the bare `<x> <y>` the README's examples use).
+  // Only the comma form was understood: the space form became `"300"`, `.split(',')`
+  // gave `['300']`, `Number(undefined)` gave NaN, and the point branch was skipped
+  // because `Number.isFinite(NaN)` is false — so the call rendered the page, printed
+  // no LOCATED section at all, and exited 0. A locate request that locates nothing
+  // and says nothing is the one answer this tool must never give.
+  let pointArgs
+  if (args.point !== undefined) {
+    const parts = String(args.point).split(/[,\s]+/).filter(Boolean)
+    // `--point 300 78` parses as `point: "300"` plus a stray positional "78"; the pair
+    // is taken back out of `_`, wherever it landed, so the second number is neither
+    // mistaken for the file nor lost when the file is written first. Only a bare
+    // numeric token is considered, so a file called `2.tex` cannot be absorbed.
+    while (parts.length < 2) {
+      const i = args._.findIndex((a, n) => n > 0 && /^-?\d+(\.\d+)?$/.test(String(a)))
+      if (i < 0) break
+      parts.push(String(args._[i]))
+      args._.splice(i, 1)
+    }
+    const [x, y] = parts.map(Number)
+    if (parts.length !== 2 || !Number.isFinite(x) || !Number.isFinite(y)) {
+      console.error(`latex-look: --point needs two numbers, x and y in PDF points, e.g. --point 300,78 (got "${args.point}")`)
+      process.exit(1)
+    }
+    pointArgs = { x, y }
+  }
+  const at = args.text ? { text: args.text } : pointArgs
 
   try {
     const result = await look(file, {
@@ -178,7 +208,10 @@ function summary(r) {
       dpi: args.dpi ? Number(args.dpi) : 140,
       engine: args.engine,
       maxPasses: args['max-passes'] ? Number(args['max-passes']) : undefined,
-      timeoutSeconds: args.timeout ? Number(args.timeout) : undefined,
+      // `undefined` fell through to core's own default of 300, while `--help` and
+      // SKILL.md both say 120 and the plugin clamps to 120: the CLI silently allowed
+      // two and a half times the budget everyone documented for the same option.
+      timeoutSeconds: args.timeout ? Number(args.timeout) : 120,
       fresh: args.fresh === true || args.fresh === 'true',
       audit: args.audit === true || args.audit === 'true',
       sequence: args.sequence ? String(args.sequence) : null,
