@@ -68,6 +68,29 @@ await check('a first build explains why compare previous has no baseline', async
 const locatedAt = (out, x, y) =>
   new RegExp(`→ p1 x=${x}\\.0 y=${y}\\.0`).test(out)
 
+// `\includeonly{chap1}` leaves chap2 out of the build without a word in the log.
+// Asking for text that lives only in chap2 used to be answered by blaming SyncTeX,
+// which sends the reader to look for a mapping problem that does not exist.
+await check('text in a chapter that \\includeonly excludes names the real cause', async () => {
+  const inc = join(dir, 'includeonly')
+  await mkdir(inc, { recursive: true })
+  await writeFile(join(inc, 'root.tex'), [
+    '\\documentclass{article}',
+    '\\includeonly{chap1}',
+    '\\begin{document}',
+    '\\include{chap1}',
+    '\\include{chap2}',
+    '\\end{document}',
+    '',
+  ].join('\n'))
+  await writeFile(join(inc, 'chap1.tex'), 'CHAPTERONE text here.\n')
+  await writeFile(join(inc, 'chap2.tex'), 'CHAPTERTWO text here.\n')
+  const r = await run([join(inc, 'root.tex'), '--page', '1', '--text', 'CHAPTERTWO'])
+  assert(/includeonly/i.test(r.stdout + r.stderr), `never mentioned \\includeonly:\n${r.stdout}${r.stderr}`)
+  assert(/chap2\.tex:1/.test(r.stdout + r.stderr), `did not name the excluded file:\n${r.stdout}${r.stderr}`)
+  assert(!/SyncTeX returned no position/.test(r.stdout), `blamed SyncTeX for an excluded file:\n${r.stdout}`)
+})
+
 await check('--point x,y locates the point', async () => {
   const r = await run([tex, '--point', '80,105'])
   assert(r.code === 0, `exit ${r.code}: ${r.stderr}`)

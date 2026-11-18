@@ -1,3 +1,22 @@
+## Unreleased — the excluded chapter, not SyncTeX
+
+`\includeonly{chap1}` leaves `chap2` out of the build without a word in the log. Asking
+`--text` for a sentence that lives only in `chap2` was answered with
+
+    the text "CHAPTERTWO" matched 1 source line(s), but SyncTeX returned no position;
+    no source-to-page mapping is available
+
+which sends the reader to look for a SyncTeX problem that does not exist, and mentions
+nothing about the `\includeonly` line that caused it. The reply now names the file and
+the reason:
+
+    the text "CHAPTERTWO" is on chap2.tex:1, which \includeonly leaves out of this
+    build — the page cannot show it
+
+The cause is read from the main document's `\includeonly`, with comments stripped first
+so a commented-out line excludes nothing. A `\includeonly` that does not explain the
+missing match leaves the old messages intact.
+
 # Changelog
 
 ## 0.4.3 — two review passes
