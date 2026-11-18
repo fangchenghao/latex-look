@@ -5,6 +5,10 @@ on:
     tags: ['v*']
   workflow_dispatch:
 
+# Two jobs, and the split is not cosmetic: `apt-get install` of TeX has taken this
+# runner past twenty minutes without finishing, and while the registry step sat
+# behind it, three releases went out with the registry still advertising 0.4.0. What
+# MCP clients search and what npm clients install do not need to wait on each other.
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -19,30 +23,26 @@ jobs:
         with:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
-      - name: Install TeX and Ghostscript
-        run: |
-          sudo apt-get update -qq
-          # There is no `synctex` package on Ubuntu — the CLI lives in texlive-binaries,
-          # which texlive-xetex pulls in. Naming it here failed the whole install.
-          # texlive-fonts-extra is most of a gigabyte and took this job past ten
-          # minutes on its own. What the suites actually use is here: beamer and
-          # tikz come from latex-recommended and pictures, CJK from lang-chinese.
-          sudo apt-get install -y -qq ghostscript texlive-xetex texlive-lang-chinese
-      - name: Check the tag matches package.json
-        if: startsWith(github.ref, 'refs/tags/')
+
+      - name: Check the tag, package.json and server.json agree
         run: |
           node -e "
-          const p = require('./package.json');
-          const tag = process.env.GITHUB_REF_NAME.replace(/^v/, '');
-          if (p.version !== tag) { console.error('tag ' + tag + ' != package.json ' + p.version); process.exit(1) }
+          const pkg = require('./package.json');
+          const srv = require('./server.json');
+          const fail = (msg) => { console.error(msg); process.exit(1) };
+          if (srv.version !== pkg.version) fail('server.json ' + srv.version + ' != package.json ' + pkg.version);
+          for (const p of srv.packages || []) {
+            if (p.version !== pkg.version) fail('server.json package version ' + p.version + ' != ' + pkg.version);
+            if (p.identifier !== pkg.name) fail('server.json identifier ' + p.identifier + ' != ' + pkg.name);
+          }
+          if (srv.name !== pkg.mcpName) fail('server.json name ' + srv.name + ' != package.json mcpName ' + pkg.mcpName);
+          if (process.env.GITHUB_REF_TYPE === 'tag') {
+            const tag = process.env.GITHUB_REF_NAME.replace(/^v/, '');
+            if (tag !== pkg.version) fail('tag ' + tag + ' != package.json ' + pkg.version);
+          }
+          console.log('version ' + pkg.version + ' agrees with the tag and server.json');
           "
-      # The full suite needs beamer, tikz and a pile of font packages — about a
-      # gigabyte of TeX, which turned a release into a 15-minute wait. What runs
-      # here is what this job can actually prove: the resolver, a real compile and
-      # render, escaped paths, and the MCP server. `npm test` stays the local gate,
-      # and the windows job runs the same two suites on the other platform.
-      - run: node test/platform.mjs
-      - run: node test/mcp.mjs
+
       # A tag can be pushed for a version that was published by hand, and then this
       # job would fail on a version that already exists — reporting a broken release
       # that is in fact fine. Publish only what is missing.
@@ -66,3 +66,28 @@ jobs:
             | tar xz mcp-publisher
           ./mcp-publisher login github-oidc
           ./mcp-publisher publish
+
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install TeX and Ghostscript
+        run: |
+          sudo apt-get update -qq
+          # There is no `synctex` package on Ubuntu — the CLI lives in texlive-binaries,
+          # which texlive-xetex pulls in. Naming it here failed the whole install.
+          # texlive-fonts-extra is most of a gigabyte and took this job past ten
+          # minutes on its own. What the suites actually use is here.
+          sudo apt-get install -y -qq ghostscript texlive-xetex texlive-lang-chinese
+      # The full suite needs beamer, tikz and a pile of font packages — about a
+      # gigabyte of TeX. What runs here is what this job can actually prove: the
+      # resolver, a real compile and render, escaped paths, and the MCP server.
+      # `npm test` stays the local gate, and the windows job runs the same two
+      # suites on the other platform.
+      - run: node test/platform.mjs
+      - run: node test/mcp.mjs
