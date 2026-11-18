@@ -1,6 +1,12 @@
 # Changelog
 
-## Unreleased — second review
+## 0.4.3 — two review passes
+
+Two models read the whole tool in turn, reproduced every claim before changing it, and
+the second audited the first: five of the first pass's eleven fixes were incomplete.
+Everything below was observed, not inferred.
+
+### Second pass (content identity, honest checks)
 
 - PDF text and whole-document observations now use content digests, not mtime+size;
   restored equal-size PDFs no longer verify text from an older build. Build signatures
