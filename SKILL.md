@@ -53,9 +53,11 @@ or spacing, also look at one more page before claiming success.
 as the reader turns the pages; a float lands after any inline sibling that follows it
 in the source. `sequence: "图"` reports every inversion with both page numbers.
 Both `3-1` and `3.1` separators are read, so `sequence: "Figure"` works on a document
-that prints `Figure 3.2`. If **no** label matches, the reply says
-`cannot check the order` and why — that is a check that did not run, not a document
-in order, so fix the prefix before you read anything into it.
+that prints `Figure 3.2`. Only complete two-integer labels are supported: a suffix
+such as `3.2a`, a third number part, or an unsupported separator makes the **whole
+scan** decline, even if other labels matched. A reply saying `cannot check the
+order` is not evidence of order. Read its reason and the observed labels; do not
+change the document merely to satisfy the check.
 
 7d. **A hole that survived the float is still a hole.** Floating moves the empty
 space, it does not delete it: if the text after the figure is short, the page still
@@ -67,10 +69,10 @@ figure a caption" is fulfilled per figure and can still leave ten pages broken:
 the caption adds height, the figure no longer fits, and it jumps to the next page,
 leaving a hole. No single page shows that. Pass `audit: true` to `latex_look`:
 it measures every page and reports only findings **that were not there in the
-previous audit of the same document** — so a first run records a baseline and
-every later run says exactly what this build broke. Anything it lists is yours to
-fix or to tell the reader about; silence means the change did not disturb the rest
-of the book.
+previous usable audit of the same document** — so a first usable run records a
+baseline. Failed builds and uncalibratable audits do not replace it. Read the audit's
+status: `cannot measure` is not a pass, and `nothing new` means no new findings under
+this audit's measurements, not proof that every part of the layout is unchanged.
 
 ## Playbook: symptom → cause → fix
 

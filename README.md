@@ -104,7 +104,7 @@ node bin/latex-look.mjs --check-update
 
 ### Releasing
 
-Tagging `v*` runs the test suite on Ubuntu with TeX and Ghostscript installed, verifies the tag matches `package.json`, and publishes to npm. The token comes from the `NPM_TOKEN` repository secret.
+Tagging `v*` runs the platform and MCP suites on Ubuntu with TeX and Ghostscript installed, verifies the tag matches `package.json`, and publishes to npm. The full `npm test` suite is the local gate. The token comes from the `NPM_TOKEN` repository secret.
 
 ### Optional: the knowledge skill
 
@@ -176,8 +176,9 @@ Listed in the official [MCP Registry](https://registry.modelcontextprotocol.io) 
 
 ## Tests
 
-Five suites run on a clean checkout — they create their own fixtures and compile
-real documents, so expect a few minutes (`npm test` runs exactly these, in this order):
+Ten suites run on a clean checkout. Integration cases create their own fixtures and
+compile real documents; unit cases and two CLI option/error probes use controlled
+inputs or stubs. Expect a few minutes (`npm test` runs these, in this order):
 
 ```bash
 node test/platform.mjs        # win32 branches of PATH/PATHEXT/Ghostscript lookup, on any OS
@@ -187,6 +188,15 @@ node test/scenarios-deep.mjs  # 34 cases: multi-file papers, beamer, twocolumn, 
                               #   engine switching, the build cache, hostile inputs
 node test/cli.mjs             # the CLI's own argument handling, through the real binary
 node test/mcp.mjs             # the MCP server on the wire: handshake, schema, real call
+node test/review-core.mjs     # restored timestamps, concurrent renders, snapshots, inputs
+node test/review-sequence.mjs # complete label scans and TOC pass semantics
+node test/review-audit.mjs    # blank/failed builds must not become clean baselines
+node test/review-update.mjs   # loaded version vs disk, semver precedence
+```
+
+Optional book suites (not part of `npm test`):
+
+```bash
 node test/book-scenarios.mjs  # 15 cases against a real 208-page book (164 .tex files)
 node test/book-tasks.mjs      # 18 real editing tasks on the same book (see below)
 LATEX_LOOK_BOOK=/pristine/copy node test/book-tasks.mjs   # point it at an unedited copy
@@ -261,8 +271,10 @@ browsing pages of the same build should not:
 | every look after that, sources unchanged | ~0.2 s |
 
 A build is reused when the document, everything it `\input`/`\include`s (three
-levels), its `\includegraphics` files and its aux files are unchanged (mtime and
-size). A failing build is never reused. Pass `fresh: true` to bypass it.
+levels), its `\includegraphics` files and its aux files are unchanged. Signatures
+include content hashes as well as metadata; the output PDF is also checked against
+its recorded digest. Restored timestamps and equal-size edits cannot reuse stale
+observations. A failing build is never reused. Pass `fresh: true` to bypass it.
 
 Two consequences worth knowing:
 
@@ -275,7 +287,8 @@ Two consequences worth knowing:
   `.aux`/`.toc` and corrupt each other — racing two processes on the 208-page book,
   one of them died with no error message at all. Builds are now serialised in-process
   by a promise queue and across processes by a lock file that carries the owner's
-  PID, so a killed run cannot wedge the document.
+  PID, so a killed run cannot wedge the document. The lock covers the snapshot,
+  compile and observations together, not just the engine invocation.
 
 `-draftmode` on the intermediate passes was measured and rejected: it saves about
 2%, because the time is typesetting, not PDF writing. The ~16 s is TeX itself.
@@ -342,8 +355,20 @@ Coordinates are PDF points (72/inch) with the origin at the **top-left** of the 
   per-document level exists because two projects whose main files are both `main.tex`
   otherwise wrote to one PNG path, and the second look silently replaced the image the
   first call had already handed back.
+- Returned PNG paths are unique per render, including repeated looks at the same
+  document, so a later call cannot replace an image already handed to the reader.
+- `compare: null` disables comparison but still records the next build's baseline.
+  A missing/unreadable baseline or different page dimensions gets a reason, not a diff.
 - The build cache tracks the document, its `\input`/`\include` targets, its `\includegraphics` files and its aux files. A `.sty` that changed, or a file pulled in through a macro rather than a literal `\input{...}`, is not tracked — pass `fresh: true` if you suspect a stale build.
-- `maxPasses: 1` on a document with `\tableofcontents` is reported as an error when no `.toc` existed before, and as a warning otherwise: the `.toc` file is written *after* the TOC page is typeset, so one pass reliably produces a blank TOC page.
+- `maxPasses: 1` on a classic-engine document with `\tableofcontents` is an error
+  when the previous `.toc` had no entries (even if it contained setup commands),
+  and a warning when a populated old `.toc` was typeset. `latexmk` counts as one
+  invocation while managing its own passes.
+- Sequence checks support complete two-integer labels separated by `-`, `–`, `—`,
+  `.`, or `·`. Zero matches or any unsupported numeric label with that prefix
+  declines the scan; suffixes such as `3.2a` are not silently truncated.
+- An audit without a reference text block, or a failed compile, cannot replace the
+  last usable audit baseline. Failed auxiliary tools make the build fail too.
 
 ## License
 

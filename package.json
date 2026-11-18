@@ -43,7 +43,7 @@
     "node": ">=18"
   },
   "scripts": {
-    "test": "node test/platform.mjs && node test/smoke.mjs && node test/scenarios.mjs && node test/scenarios-deep.mjs && node test/cli.mjs && node test/mcp.mjs",
+    "test": "node test/platform.mjs && node test/smoke.mjs && node test/scenarios.mjs && node test/scenarios-deep.mjs && node test/cli.mjs && node test/mcp.mjs && node test/review-core.mjs && node test/review-sequence.mjs && node test/review-audit.mjs && node test/review-update.mjs",
     "test:unit": "node test/smoke.mjs",
     "test:scenarios": "node test/scenarios.mjs",
     "test:deep": "node test/scenarios-deep.mjs",

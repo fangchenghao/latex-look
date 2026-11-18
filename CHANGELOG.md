@@ -1,5 +1,39 @@
 # Changelog
 
+## Unreleased — second review
+
+- PDF text and whole-document observations now use content digests, not mtime+size;
+  restored equal-size PDFs no longer verify text from an older build. Build signatures
+  also hash tracked inputs and verify the output PDF. Nested literal inputs and graphics
+  paths are resolved from TeX's compilation directory, not the including file's directory.
+- Page-text extraction uses unique temporary files. Returned PNGs and composites are
+  immutable per call: concurrent documents cannot exchange text, and a missing page
+  cannot return an old PNG. The document lock covers snapshots and observations as well
+  as compilation; concurrent looks no longer share a partly published baseline.
+- Comparison selection is separate from snapshot publication. `compare: null` disables
+  the diff; an unreadable explicit baseline does not stop the next previous-build snapshot.
+  CLI output now displays comparison declines, and errors distinguish missing pages,
+  corrupt baselines and different page sizes. A successful no-op `latexmk` invocation
+  no longer falsely says that no PDF was produced.
+- One classic pass over a setup-only or comment-only `.toc` is an empty-TOC error,
+  not a warning. Entry count, not file size, decides whether an old TOC was populated.
+- Sequence scans decline unsupported or partially matched numeric labels rather than
+  truncating `3.2a`/`3.2.1` to `3.2`. Replies preserve the labels actually read.
+  Extraction errors are visible in every frontend.
+- CLI point parsing consumes adjacent coordinates only; third tokens, missing option
+  values and unknown options are refused. Boolean flags no longer swallow the filename.
+- Failed auxiliary tools fail the build. Failed partial PDFs cannot pass a sequence
+  check or replace an audit baseline; blank and otherwise uncalibratable audits decline
+  and preserve the last usable baseline.
+- A horizontal rule must cross the queried x-coordinate. Missing SyncTeX mappings now
+  say so, instead of silently dropping a point request or calling existing source text
+  absent. An invalid page cannot return a location from page one.
+- The running version is captured during module initialization, before the first call,
+  and SemVer precedence compares numeric prerelease identifiers and ignores build metadata.
+- Added real-engine regressions and prior-version counterchecks. The CLI JSON test now
+  asserts an actual edited-page diff. `npm test` includes all four second-review suites;
+  optional book tests remain separate.
+
 ## Unreleased — answers that came from the wrong place
 
 Every defect below was reproduced before it was fixed, against real documents.

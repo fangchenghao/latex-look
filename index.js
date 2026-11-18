@@ -140,7 +140,7 @@ export function apply(ctx) {
         },
         fresh: {
           type: 'boolean',
-          description: 'Ignore the build cache and compile from scratch. The cache is keyed on the mtime and size of the document, every file it \\input/\\include\'s, its images and its aux files; use this only if you suspect it is out of date.',
+          description: 'Ignore the build cache and compile from scratch. The cache checks metadata and content digests of the document, literal \\input/\\include targets, images and aux files, plus the output PDF; use this if an untracked dependency changed.',
         },
         audit: {
           type: 'boolean',

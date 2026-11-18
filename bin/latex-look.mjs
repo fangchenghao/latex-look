@@ -22,17 +22,46 @@ async function cli() {
 
 function parseArgs(argv) {
   const out = { _: [] }
+  const flags = new Set(['json', 'help', 'fresh', 'audit', 'version', 'check-update'])
+  const values = new Set(['page', 'text', 'compare', 'dpi', 'engine', 'max-passes', 'timeout', 'audit-blank', 'sequence'])
+  const numeric = new Set(['page', 'dpi', 'max-passes', 'timeout', 'audit-blank'])
+  const number = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i
+  const isNumber = (s) => typeof s === 'string' && number.test(s) && Number.isFinite(Number(s))
+  const isOption = (s) => s === '-h' || s?.startsWith('--')
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
-    if (a === '--json') out.json = true
-    else if (a === '--help' || a === '-h') out.help = true
-    else if (a.startsWith('--')) {
-      const key = a.slice(2)
-      const val = argv[i + 1]
-      if (val === undefined || val.startsWith('--')) out[key] = true
-      else { out[key] = val; i++ }
-    } else out._.push(a)
+    if (a === '--') { out._.push(...argv.slice(i + 1)); break }
+    if (a === '-h') { out.help = true; continue }
+    if (!a.startsWith('--')) { out._.push(a); continue }
+    const key = a.slice(2)
+    if (flags.has(key)) {
+      out[key] = true
+      // Retain the explicit boolean spellings without consuming a following file.
+      if ((key === 'fresh' || key === 'audit') && /^(true|false)$/.test(argv[i + 1] || '')) {
+        out[key] = argv[++i] === 'true'
+      }
+    } else if (key === 'point') {
+      const value = argv[i + 1]
+      const badPoint = () => { throw new Error(`--point needs two numbers, x and y in PDF points, e.g. --point 300,78 (got ${JSON.stringify(value ?? '')})`) }
+      if (value === undefined || isOption(value)) badPoint()
+      i++
+      // Consume only adjacent coordinates, before identifying the positional file.
+      // Searching all positionals stole unrelated numbers and broke option-first use.
+      const parts = value.includes(',') ? value.split(',').map((s) => s.trim()) : value.trim().split(/\s+/)
+      if (parts.length === 1 && isNumber(parts[0]) && isNumber(argv[i + 1])) parts.push(argv[++i])
+      if (parts.length !== 2 || !parts.every(isNumber)) badPoint()
+      out.point = { x: Number(parts[0]), y: Number(parts[1]) }
+    } else if (values.has(key)) {
+      const value = argv[i + 1]
+      if (value === undefined || isOption(value) || !value.trim()) throw new Error(`${a} needs a value`)
+      if (numeric.has(key) && !isNumber(value)) throw new Error(`${a} needs a number (got ${JSON.stringify(value)})`)
+      out[key] = value
+      i++
+    } else {
+      throw new Error(`unknown option: ${a}`)
+    }
   }
+  if (out._.length > 1) throw new Error(`unexpected positional argument: ${JSON.stringify(out._[1])}; provide exactly one .tex file`)
   return out
 }
 
@@ -41,9 +70,10 @@ function summary(r) {
   L.push(`${r.ok ? 'OK' : 'FAILED'}  ${r.file}`)
   L.push(`engine ${r.engine} · ${r.cached ? 'reused (nothing changed)' : `${r.passes} pass(es)`} · ${r.pages ?? '?'} pages · showing page ${r.page}`)
   if (r.toc?.expected) L.push(`toc    ${r.toc.entries ?? 0} entries`)
-  if (r.sequence && !r.sequence.error) {
+  if (r.sequence) {
     L.push('')
-    if (r.sequence.unreliable) L.push(`ORDER  cannot check the order: ${r.sequence.unreliable}`)
+    if (r.sequence.error) L.push(`ORDER  cannot check the order: ${r.sequence.error}`)
+    else if (r.sequence.unreliable) L.push(`ORDER  cannot check the order: ${r.sequence.unreliable}`)
     else if (!r.sequence.inversions.length) L.push(`ORDER  ${r.sequence.total} ${r.sequence.label}-label(s), all in reading order`)
     else {
       L.push(`ORDER  ${r.sequence.inversions.length} inversion(s) among ${r.sequence.total} ${r.sequence.label}-label(s):`)
@@ -75,6 +105,7 @@ function summary(r) {
   if (r.aux?.length) L.push(`aux    ${r.aux.map((a) => `${a.tool}${a.ok ? '' : ' FAILED'}`).join(', ')}`)
   if (r.images?.after) L.push(`image  ${r.images.after}`)
   if (r.fatal) L.push(`FATAL  ${r.fatal}`)
+  if (r.compareError) L.push(`COMPARE  ${r.compareError}`)
   if (r.problems?.length) {
     L.push('')
     L.push(`PROBLEMS (${r.problems.length})`)
@@ -124,7 +155,13 @@ function summary(r) {
   return L.join('\n')
 }
 
-  const args = parseArgs(process.argv.slice(2))
+  let args
+  try {
+    args = parseArgs(process.argv.slice(2))
+  } catch (err) {
+    console.error(`latex-look: ${err.message}`)
+    process.exit(1)
+  }
 
   if (args.version || args['check-update']) {
     if (args.version) console.log(await currentVersion())
@@ -171,34 +208,7 @@ function summary(r) {
   }
 
   const file = args._[0]
-  // `--point` accepts both spellings people use: `--point 300,78` (the usage text)
-  // and `--point 300 78` (the bare `<x> <y>` the README's examples use).
-  // Only the comma form was understood: the space form became `"300"`, `.split(',')`
-  // gave `['300']`, `Number(undefined)` gave NaN, and the point branch was skipped
-  // because `Number.isFinite(NaN)` is false — so the call rendered the page, printed
-  // no LOCATED section at all, and exited 0. A locate request that locates nothing
-  // and says nothing is the one answer this tool must never give.
-  let pointArgs
-  if (args.point !== undefined) {
-    const parts = String(args.point).split(/[,\s]+/).filter(Boolean)
-    // `--point 300 78` parses as `point: "300"` plus a stray positional "78"; the pair
-    // is taken back out of `_`, wherever it landed, so the second number is neither
-    // mistaken for the file nor lost when the file is written first. Only a bare
-    // numeric token is considered, so a file called `2.tex` cannot be absorbed.
-    while (parts.length < 2) {
-      const i = args._.findIndex((a, n) => n > 0 && /^-?\d+(\.\d+)?$/.test(String(a)))
-      if (i < 0) break
-      parts.push(String(args._[i]))
-      args._.splice(i, 1)
-    }
-    const [x, y] = parts.map(Number)
-    if (parts.length !== 2 || !Number.isFinite(x) || !Number.isFinite(y)) {
-      console.error(`latex-look: --point needs two numbers, x and y in PDF points, e.g. --point 300,78 (got "${args.point}")`)
-      process.exit(1)
-    }
-    pointArgs = { x, y }
-  }
-  const at = args.text ? { text: args.text } : pointArgs
+  const at = args.text ? { text: args.text } : args.point
 
   try {
     const result = await look(file, {
