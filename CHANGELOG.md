@@ -1,4 +1,4 @@
-## Unreleased — the excluded chapter, not SyncTeX
+## 0.4.4 — the excluded chapter, not SyncTeX
 
 `\includeonly{chap1}` leaves `chap2` out of the build without a word in the log. Asking
 `--text` for a sentence that lives only in `chap2` was answered with
