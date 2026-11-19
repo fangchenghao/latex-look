@@ -345,7 +345,7 @@ Coordinates are PDF points (72/inch) with the origin at the **top-left** of the 
   must confirm it against the rendered page first.
 - SyncTeX resolves to the *nearest text position*. A decorative rule drawn by a page style (`\pagestyle{headings}`, `fancyhdr`) has no glyph of its own, so it resolves to nearby text. Combine the coordinates with LaTeX knowledge — that is what `SKILL.md` is for.
 - Multi-pass convergence is checked by hashing `.aux`/`.toc`/`.out`/… — a document with `\tableofcontents` needs ≥ 2 passes, and `latex_look` reports a problem if the TOC comes out empty.
-- Multi-file detection follows `\input`/`\include` three levels deep. `\import`/`\subfile`, unusual custom `.latexmkrc` recipes, and `\includeonly` are not understood.
+- Source lookup follows nested literal `\input` and `\include` references and ignores LaTeX comments. A main-file `\includeonly` list limits which chapters contribute to the TOC check.
 - Cross-engine pixel parity is impossible: TeX vs Word, or two different TeX engines, have different line-breaking engines. This tool verifies *your* engine's output, not another format's.
 - A `%` in a *file name* defeats the TeX engine itself (`! Emergency stop.`), so no tool can help there. A `%` in a directory name is fine.
 - If the compile fails without writing a new PDF, the stale PDF on disk is **not** rendered and no diff is reported — the tool says so instead. Otherwise an unchanged file would read as "0% changed", i.e. "your edit did nothing".
@@ -359,7 +359,7 @@ Coordinates are PDF points (72/inch) with the origin at the **top-left** of the 
   document, so a later call cannot replace an image already handed to the reader.
 - `compare: null` disables comparison but still records the next build's baseline.
   A missing/unreadable baseline or different page dimensions gets a reason, not a diff.
-- The build cache tracks the document, its `\input`/`\include` targets, its `\includegraphics` files and its aux files. A `.sty` that changed, or a file pulled in through a macro rather than a literal `\input{...}`, is not tracked — pass `fresh: true` if you suspect a stale build.
+- XeLaTeX, LuaLaTeX, pdfLaTeX and latexmk record the project files TeX actually opened in `.fls`. The cache checks their contents on subsequent looks, including styles, classes and inputs selected by macros. All engines also check literal source, image, local style and bibliography references, aux files and the PDF itself. Use `fresh: true` after changing a system package or another dependency outside this coverage.
 - `maxPasses: 1` on a classic-engine document with `\tableofcontents` is an error
   when the previous `.toc` had no entries (even if it contained setup commands),
   and a warning when a populated old `.toc` was typeset. `latexmk` counts as one

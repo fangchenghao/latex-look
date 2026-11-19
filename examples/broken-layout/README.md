@@ -30,10 +30,8 @@ same reason a spell-checker cannot tell you your table has too many rules.
 
 ## Why defect 1 is the interesting one
 
-"Delete the line at the top of the page" is the request that proves the point:
-there is no line in the source. Nothing in `broken.tex` says `
-ule` at that
-height — the hairline above the title is drawn by `fancyhdr` because
+"Delete the line at the top of the page" refers to the hairline above the title.
+The `fancyhdr` package draws it because
 `\pagestyle{fancy}` was set and the header was never cleared. Grep finds nothing,
 reading the file finds nothing, and a model that never sees the page has no way to
 know the request was about `\headrulewidth` at all.
@@ -44,5 +42,5 @@ know the request was about `\headrulewidth` at all.
 exactly the five changes above — which is what `--compare` shows:
 
 ```bash
-latex-look fixed.tex --page 1 --compare   # side by side with the previous PDF
+latex-look fixed.tex --page 1 --compare broken.pdf   # compare the two demo layouts
 ```

@@ -124,6 +124,19 @@ try {
     assert.equal(restored.sequence.total, 3)
     assert.deepEqual(restored.sequence.inversions, [])
   })
+  await check('the whole-book text pass annotates findings beyond the fortieth', async () => {
+    const book = join(dir, 'short-pages.tex')
+    const pages = Array.from({ length: 43 }, (_, i) => `Figure 1.${i + 1} on sheet ${i + 1}.`)
+    await writeFile(book, '\\documentclass{article}\n\\pagestyle{empty}\n\\begin{document}\n' +
+      pages.join('\n\\newpage\n') + '\n\\end{document}\n')
+    const r = await look(book, { ...options, sequence: null })
+    assert.equal(r.ok, true, JSON.stringify(r.problems))
+    assert.equal(r.audit.findings.length, pages.length)
+    for (const f of r.audit.findings) {
+      assert.ok(f.lastLine?.endsWith(`sheet ${f.page}.`), JSON.stringify(f))
+      if (f.page < pages.length) assert.equal(f.nextPageOpensWith, `Figure 1-${f.page + 1}`)
+    }
+  })
 } finally {
   const root = await realpath(tmpdir()), target = await realpath(dir)
   assert.equal(dirname(target), root, `unsafe fixture deletion target: ${target}`)

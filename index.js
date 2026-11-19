@@ -140,7 +140,7 @@ export function apply(ctx) {
         },
         fresh: {
           type: 'boolean',
-          description: 'Ignore the build cache and compile from scratch. The cache checks metadata and content digests of the document, literal \\input/\\include targets, images and aux files, plus the output PDF; use this if an untracked dependency changed.',
+          description: 'Recompile even on a cache hit. The cache checks project inputs recorded by TeX, literal source, style, image and bibliography references, aux files and the output PDF. Use fresh after changing an external dependency.',
         },
         audit: {
           type: 'boolean',

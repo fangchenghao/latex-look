@@ -38,8 +38,8 @@
 
 ```bash
 latex-look main.tex --page 62                    # 渲染第 62 页
-latex-look main.tex --page 62 --at "图 3-1"       # 定位到源码行
-latex-look main.tex --page 62 --compare           # 与上一版并排对比
+latex-look main.tex --text "图 3-1"              # 定位到源码行并显示所在页
+latex-look main.tex --page 62 --compare previous # 与上一版并排对比
 latex-look main.tex --page 1  --sequence 图       # 检查图号阅读顺序
 latex-look main.tex --page 1  --audit             # 全书版面回归审计
 ```
