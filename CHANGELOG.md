@@ -1,3 +1,11 @@
+## 0.4.5 — page lookup, preview diffs and audit history
+
+- Supplying both a PDF page and a text anchor restricts source matches to that page. When a float moves, the tool corrects its page and drops coordinates that belong to its old position. A horizontal rule is attributed to a source command only when its position matches the rendered rule.
+- Pixel diffs use the two preview images at the requested DPI, including fine rules and subtle colour changes. The side-by-side image reuses those pixels.
+- The build cache tracks project files recorded by TeX as well as literal style and bibliography references. Source lookups repair stale SyncTeX data. A failed compile that leaves a partial PDF preserves the last successful comparison.
+- Whole-document audits keep a separate baseline per blank-space threshold, identify new or substantially deeper gaps, and reuse the report when another page of the same PDF is opened.
+- Tectonic handles populated and empty tables of contents correctly. A slow npm version check runs in the background while the Harness returns the page.
+
 ## 0.4.4 — the excluded chapter, not SyncTeX
 
 `\includeonly{chap1}` leaves `chap2` out of the build without a word in the log. Asking
