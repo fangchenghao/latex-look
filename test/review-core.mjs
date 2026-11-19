@@ -1,9 +1,10 @@
 // Reproductions from the second review. Real TeX/Ghostscript; no module mocks.
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
 import { mkdtemp, mkdir, writeFile, readFile, copyFile, stat, utimes, rm, realpath } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { look, pdfPageText, pageTexts, pageCarryingText, renderPage, replaceFile } from '../lib/core.mjs'
+import { findBinary, look, pdfPageText, pageTexts, pageCarryingText, renderPage, replaceFile } from '../lib/core.mjs'
 import { formatResult } from '../lib/format.mjs'
 
 const dir = await mkdtemp(join(tmpdir(), 'latex-look-review-'))
@@ -163,6 +164,69 @@ try {
     assert.equal(r.toc.expected, false)
     assert.deepEqual(r.located.map(h => [h.file, h.line]), [[join(folder, 'd.tex'), 1]])
   })
+  await check('an explicit page scopes repeated text before applying the eight-hit limit', async () => {
+    const pages = Array.from({ length: 12 }, (_, i) => `Operating conditions for unit ${i + 1}.`)
+    const f = await fixture('repeated-anchor', pages.join('\n\\newpage\n'))
+    const query = { engine: 'pdflatex', at: { text: 'Operating conditions' }, compare: null }
+    const last = await look(f.file, { ...query, page: 12 })
+    assert.equal(last.page, 12)
+    assert.deepEqual(last.located.map(h => [h.page, h.context]), [[12, pages[11]]])
+    assert.equal(last.located[0].pageVerified, true)
+    assert.equal(typeof last.located[0].y, 'number')
+    const wrong = await look(f.file, { ...query, page: 12, at: { text: pages[0] } })
+    assert.deepEqual(wrong.located, [])
+    assert.ok(wrong.warnings.some(w => /requested page 12.*page\(s\) 1/.test(w.message)))
+    const global = await look(f.file, query)
+    assert.equal(global.page, 1)
+    assert.deepEqual(global.located.map(h => h.page), [1, 2, 3, 4, 5, 6, 7, 8])
+  })
+  await check('a page corrected from PDF text does not inherit another page’s coordinates', async () => {
+    const f = await fixture('moved-anchor', [
+      'First page.\\newcommand{\\marker}{MOVEDMARKER}\\par',
+      '\\newpage',
+      'Second page.\\par\\vspace{100pt}\\hfill\\marker.',
+    ].join('\n'))
+    const r = await look(f.file, { ...options, page: 2, at: { text: 'MOVEDMARKER' }, compare: null })
+    assert.equal(r.located.length, 1)
+    const hit = r.located[0]
+    assert.equal(hit.synctexPage, 1)
+    assert.equal(hit.page, 2)
+    assert.equal(hit.pageVerified, true)
+    assert.equal(hit.x, null)
+    assert.equal(hit.y, null)
+  })
+  await check('a nearby body rule is only attributed at its own position, not in the header', async () => {
+    const preamble = ['\\usepackage{fancyhdr}', '\\pagestyle{fancy}',
+      '\\fancyhf{}\\fancyhead[C]{Header text}', '\\renewcommand{\\headrulewidth}{1pt}'].join('\n')
+    const rule = '\\rule{140pt}{1pt}'
+    const body = ['The first line in the body.\\par', '\\vspace{2cm}',
+      '\\noindent' + rule + '\\par', 'The last line in the body.'].join('\n')
+    const f = await fixture('header-rule', body, preamble.replace('{1pt}', '{0pt}'))
+    const source = document(body, preamble)
+    const ruleLine = source.split('\n').findIndex(line => line.includes(rule)) + 1
+    const query = { ...options, dpi: 72 }
+    const changedRule = (r) => {
+      const box = r.diff?.bbox
+      assert.ok(box && box.width > 100 && box.height <= 3, JSON.stringify(box))
+      return { x: box.x + 40, y: box.y + (box.height - 1) / 2 }
+    }
+    // Toggle each rule independently to measure its position from the rendered PDF.
+    await writeFile(f.file, source)
+    const headerPoint = changedRule(await look(f.file, query))
+    const header = await look(f.file, { ...query, at: headerPoint, compare: null })
+    const headHit = header.located[0]
+    assert.ok(Math.abs(headHit.line - ruleLine) <= 4)
+    assert.equal(headHit.ink.kind, 'rule')
+    assert.equal(headHit.ink.origin, 'unknown')
+    assert.equal(headHit.ink.sourceLine, null)
+    assert.match(formatResult(header), /nearest SyncTeX box.*source of this rule is unconfirmed/)
+    await writeFile(f.file, source.replace(rule, `\\phantom{${rule}}`))
+    const bodyPoint = changedRule(await look(f.file, query))
+    await writeFile(f.file, source)
+    const actual = await look(f.file, { ...query, at: bodyPoint, compare: null })
+    assert.equal(actual.located[0].ink.origin, 'command')
+    assert.equal(actual.located[0].ink.sourceLine.line, ruleLine)
+  })
   await check('an empty includeonly omits the chapter TOC and keeps ordinary inputs active', async () => {
     const folder = join(dir, 'partial')
     await mkdir(folder)
@@ -220,6 +284,131 @@ try {
     assert.equal(cached.cached, true)
     assert.deepEqual(cached.diff, correct.diff)
   })
+  await check('partial failed builds never become the previous PDF on recovery', async () => {
+    const original = 'Original first page.\\newpage Original second page.'
+    const f = await fixture('recovery', original)
+    for (const body of ['First partial page.', 'Second partial page.']) {
+      await writeFile(f.file, document(body + '\\UndefinedFailure'))
+      const failed = await look(f.file, options)
+      assert.equal(failed.ok, false)
+      assert.equal(failed.pages, 1)
+    }
+    await writeFile(f.file, document(original))
+    for (const page of [2, 1]) {
+      const restored = await look(f.file, { ...options, page })
+      assert.equal(restored.compareError, null)
+      assert.equal(restored.diff?.changedPixels, 0)
+    }
+  })
+  await check('a partial PDF from the very first build supplies no comparison baseline', async () => {
+    const file = join(dir, 'first-failure.tex')
+    await writeFile(file, document('One partial page.\\UndefinedFailure'))
+    const failed = await look(file, options)
+    assert.equal(failed.ok, false)
+    assert.equal(failed.pages, 1)
+    await writeFile(file, document('First successful build.'))
+    const next = await look(file, options)
+    assert.equal(next.ok, true)
+    assert.equal(next.diff, null)
+    assert.match(next.compareError, /no earlier build/)
+  })
+  for (const engine of ['pdflatex', 'latexmk']) {
+    await check(engine + ': locating repairs a missing or replaced SyncTeX map and preserves the last edit', async () => {
+      const file = join(dir, 'mapping-' + engine + '.tex')
+      const map = file.replace(/\.tex$/, '.synctex.gz')
+      const opt = { ...options, dpi: 72, engine }
+      const anchor = 'Heading to locate.'
+      const body = 'Intro.\\par\n' + anchor + '\\par\n'
+      await writeFile(file, document(body + 'Original body.'))
+      const first = await look(file, { ...opt, at: { text: anchor } })
+      const oldMap = await readFile(map)
+      const shifted = document(body.replace(anchor, '% shift source lines\n'.repeat(20) + anchor) + 'Changed body.')
+      await writeFile(file, shifted)
+      const second = await look(file, { ...opt, at: { text: anchor } })
+      const pos = second.located[0]
+      assert.equal(pos.line, first.located[0].line + 20)
+      assert.ok(second.diff?.changedPixels > 0)
+      // Both maps are valid and describe the same heading at the same point.
+      // Only the new map knows which source line draws it.
+      await writeFile(map, oldMap)
+      assert.equal((await look(file, opt)).cached, true, 'a plain preview needs no map')
+      const corrected = await look(file, { ...opt, at: { x: pos.x - 1, y: pos.y - 1 } })
+      assert.equal(corrected.cached, false)
+      assert.equal(corrected.located[0]?.line, pos.line)
+      assert.deepEqual(corrected.diff, second.diff)
+      await rm(map)
+      const repaired = await look(file, { ...opt, at: { text: anchor } })
+      assert.equal(repaired.cached, false)
+      assert.ok((await stat(map)).size > 0)
+      assert.equal(repaired.located[0]?.line, pos.line)
+      assert.deepEqual(repaired.diff, second.diff)
+      assert.equal((await look(file, { ...opt, at: { text: anchor } })).cached, true)
+      await rm(map)
+      const fresh = await look(file, { ...opt, fresh: true })
+      assert.ok((await stat(map)).size > 0)
+      assert.deepEqual(fresh.diff, second.diff, 'manually rebuilding only the mapping keeps the last edit visible')
+      // The preceding release stored the same source/PDF signature without
+      // a mapping hash. Its last visual comparison survives the upgrade.
+      const cachePath = join(tmpdir(), 'latex-look-cache', createHash('sha1').update(file).digest('hex') + '.json')
+      const legacy = JSON.parse(await readFile(cachePath, 'utf8'))
+      delete legacy.syncTeX
+      await writeFile(cachePath, JSON.stringify(legacy))
+      const upgraded = await look(file, { ...opt, at: { text: anchor } })
+      assert.equal(upgraded.located[0]?.line, pos.line)
+      assert.deepEqual(upgraded.diff, second.diff)
+    })
+  }
+  await check('retrying a failed mapping repair preserves the edit until the source changes', async () => {
+    const flag = join(dir, 'mapping-temporarily-blocked')
+    const body = text => 'Heading.\\par\n' + text + '\\IfFileExists{../mapping-temporarily-blocked}{\\UndefinedFailure}{}'
+    const f = await fixture('mapping-retry/main', body('Original text.'))
+    const query = { ...options, at: { text: 'Heading' }, dpi: 72 }
+    const map = f.file.replace(/\.tex$/, '.synctex.gz')
+    const saved = join(dir, 'mapping-before-next-edit.pdf')
+    await writeFile(f.file, document(body('A longer and revised caption.')))
+    const changed = await look(f.file, query)
+    assert.ok(changed.diff?.changedPixels > 0)
+    await copyFile(changed.pdf, saved)
+    await rm(map)
+    await writeFile(flag, '')
+    for (let i = 0; i < 2; i++) {
+      const broken = await look(f.file, query)
+      assert.equal(broken.ok, false)
+      assert.equal(broken.pages, 1)
+      assert.equal(broken.cached, false)
+    }
+    await rm(flag)
+    const repaired = await look(f.file, query)
+    assert.equal(repaired.ok, true)
+    assert.deepEqual(repaired.diff, changed.diff)
+    await rm(map)
+    await writeFile(flag, '')
+    assert.equal((await look(f.file, query)).ok, false)
+    await rm(flag)
+    await writeFile(f.file, document(body('Third caption.')))
+    const edited = await look(f.file, query)
+    assert.ok(edited.diff?.changedPixels > 0)
+    assert.deepEqual(edited.diff, (await look(f.file, { ...query, compare: saved })).diff)
+  })
+  if (findBinary('tectonic') !== 'tectonic') {
+    await check('Tectonic checks the TOC produced by this run, including an empty replacement', async () => {
+      const file = join(dir, 'tectonic-toc.tex')
+      const opts = { ...options, engine: 'tectonic', compare: null }
+      await writeFile(file, document('A plain page.'))
+      assert.equal((await look(file, opts)).ok, true)
+      await assert.rejects(stat(file.replace(/\.tex$/, '.aux')), { code: 'ENOENT' })
+      await writeFile(file, document('\\tableofcontents\\newpage\\section{Visible heading}A page.'))
+      const full = await look(file, opts)
+      assert.equal(full.ok, true, JSON.stringify(full.problems))
+      assert.equal(full.toc.entries, 1)
+      assert.match(await pdfPageText(full.pdf, 1), /Visible\s*heading/)
+      await writeFile(file, document('\\tableofcontents\\newpage\\section*{Unnumbered}A page.'))
+      const empty = await look(file, opts)
+      assert.equal(empty.ok, false)
+      assert.equal(empty.toc.entries, 0)
+      assert.ok(empty.problems.some(p => /contents is EMPTY/.test(p.message)))
+    })
+  }
   await check('fresh latexmk may correctly leave an already current PDF untouched', async () => {
     const f = await fixture('latexmk-noop', 'ALREADY CURRENT')
     const first = await look(f.file, { ...options, engine: 'latexmk' })
@@ -277,6 +466,7 @@ try {
     assert.deepEqual(point.located, [])
     assert.ok(point.warnings.some(w => /SyncTeX returned no source position/.test(w.message)))
     const text = await look(f.file, { ...options, at: { text: 'VISIBLE MARKER' } })
+    assert.equal(text.cached, true, 'the document deliberately disabled SyncTeX')
     assert.deepEqual(text.located, [])
     assert.ok(text.warnings.some(w => /matched 1 source line.*SyncTeX returned no position/.test(w.message)))
     assert.ok(!text.warnings.some(w => /was not found/.test(w.message)))

@@ -5,7 +5,7 @@ import { copyFile, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { compareVersions, parseVersion, restartNote } from '../lib/update.mjs'
+import { checkForUpdate, compareVersions, parseVersion, restartNote } from '../lib/update.mjs'
 
 let failures = 0
 let checks = 0
@@ -19,6 +19,22 @@ const repo = dirname(dirname(fileURLToPath(import.meta.url)))
 const root = resolve(tmpdir())
 const dir = await mkdtemp(join(root, "latex-look-update review 中文's-"))
 try {
+  await check('the registry time budget also covers the response body', async () => {
+    const result = await checkForUpdate({
+      ttlMs: -1, timeoutMs: 40,
+      fetchImpl: async (_url, { signal }) => ({
+        ok: true,
+        json: () => new Promise((_resolve, reject) => {
+          const late = setTimeout(() => reject(new Error('body stayed open')), 500)
+          signal.addEventListener('abort', () => {
+            clearTimeout(late)
+            reject(new Error('body was aborted'))
+          }, { once: true })
+        }),
+      }),
+    })
+    assert.equal(result.error, 'body was aborted')
+  })
   await check('running version belongs to import time, even before its first caller', async () => {
     await mkdir(join(dir, 'lib'))
     await copyFile(join(repo, 'lib', 'update.mjs'), join(dir, 'lib', 'update.mjs'))

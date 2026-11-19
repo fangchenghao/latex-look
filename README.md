@@ -15,7 +15,7 @@ yourself in [`examples/broken-layout`](examples/broken-layout).*
 
 A **DeepSeek Harness plugin** that adds exactly one tool: `latex_look`.
 
-An agent that only reads `.tex` source is blind: a document can compile with zero errors and still look wrong. `latex_look` compiles the document, renders the page as an image, maps any spot on that page back to the exact source line, and diffs what your last edit changed — in a single call.
+A LaTeX document can compile with zero errors and still look wrong. `latex_look` renders the requested page, uses SyncTeX to locate nearby source, and shows what changed since the previous build.
 
 ```
         ┌─────────────┐   latex_look   ┌──────────────┐
@@ -192,6 +192,7 @@ node test/review-core.mjs     # restored timestamps, concurrent renders, snapsho
 node test/review-sequence.mjs # complete label scans and TOC pass semantics
 node test/review-audit.mjs    # blank/failed builds must not become clean baselines
 node test/review-update.mjs   # loaded version vs disk, semver precedence
+node test/render-diff.mjs     # PNG filters, pixel counts and the side-by-side preview
 ```
 
 Optional book suites (not part of `npm test`):
@@ -247,18 +248,16 @@ SyncTeX records the page a box was **built** on. A float that TeX moves to the n
 page gets the previous page's number, so `text: "Version 0.5"` used to answer
 "page 205" for a table that ships on 206 — and page 205 is a different chapter.
 The tool now checks the PDF's own text layer (`gs -sDEVICE=txtwrite`, ~0.12 s a page)
-and looks one and two pages either side; when it overrules SyncTeX it says so.
+and looks up to two pages either side. If the text is on a different page, the
+tool reports the corrected page and leaves `x` and `y` empty. Supplying both
+`page` and `text` restricts the source matches to the requested PDF page.
 
 ## One picture, not two
 
-A `compare` call writes three images, but the one to show the user is
-`images.sideBySide`: the page before on the left, the page after on the right, one
-PNG. Finding the difference by eye across two separate files is the hardest part of
-the job for someone who cannot read the source.
-
-Writing a PNG needs no dependency — a signature, `IHDR`, one zlib `IDAT`, `IEND`, and
-`node:zlib` supplies the compression. The composite costs about 0.3 s on an A4 page at
-140 dpi, and only runs when there is something to compare.
+The plugin compares the pixels in the two preview PNGs at the requested DPI.
+When pixels change, `images.sideBySide` shows the old page on the left and the
+new page on the right. The difference box uses PDF points at every resolution,
+so its centre can be passed directly to `pointX` and `pointY`.
 
 ## Performance
 
@@ -281,8 +280,8 @@ Two consequences worth knowing:
 - **The before-snapshot belongs to the build, not to the call.** After an edit, the
   first look records what the page looked like before it; every later look at that
   same build reuses the same snapshot, so an agent inspecting three pages of its
-  own edit still sees a diff on the second and third. (It used to be consumed by
-  the first call, which is exactly the wrong way round.)
+  own edit still sees a diff on the second and third. A failed compile can write a
+  partial PDF. Retrying still compares against the last successful build.
 - **One build per document at a time.** Two compiles of the same file share its
   `.aux`/`.toc` and corrupt each other — racing two processes on the 208-page book,
   one of them died with no error message at all. Builds are now serialised in-process
@@ -299,7 +298,7 @@ Two consequences worth knowing:
 latex_look({
   "file": "book.tex",       // main .tex (required)
   "page": 37,               // optional, defaults to 1
-  "text": "表3.1",          // optional: locate this string, show its page
+  "text": "表3.1",          // optional, find this text on the selected page
   "pointX": 240,            // optional, with pointY: PDF points → source line
   "pointY": 610,
   "compare": "previous.pdf",// optional: diff against an earlier PDF
@@ -308,8 +307,8 @@ latex_look({
   "maxPasses": 3,           // optional
   "timeoutSeconds": 300,    // optional
   "fresh": false,           // optional: ignore the build cache
-  "audit": false,           // optional: whole-document layout audit vs the last run
-  "auditBlankMm": 30        // optional: how deep a bottom hole must be to count,
+  "audit": false,           // optional, compare whole-document layout at this threshold
+  "auditBlankMm": 30,       // minimum bottom gap in millimetres
   "sequence": "图"            // optional: check that numbered labels stay in reading order
 })
 ```
@@ -322,13 +321,13 @@ Returns:
 - `aux`: external tools it ran — `makeglossaries`, `makeindex`, `biber`, `bibtex` — chosen from the artifacts the first pass produced, not from the root file's text, so multi-file projects that keep `\makeglossaries` in an included preamble are handled too
 - PNG path(s) for the rendered page — hand these to an image reader
 - `located`: `{ file, line, page }` for the text anchor or point you asked about
-- `diff`: `changedRatio` plus the bounding box of the change **in PDF points**, ready to feed back into `pointX`/`pointY`
+- `diff`: `changedPixels` counts RGB pixels that differ in the returned previews at `diff.dpi`. `changedRatio` is their fraction of the page. The bounding box uses **PDF points** at every resolution, ready to feed back into `pointX`/`pointY`.
 - `sequence`: reading order of labels that start a line ("图 1-1", "Figure 3.2", …). A float is placed later than an inline object that follows it in the source, so floating one member of a numbered run makes the numbers go backwards — the one defect a per-page diff can never show
-- `audit`: page-level layout findings — pages that stop short of the deepest text in the book, pages that start low, nearly empty pages — **compared with the baseline the previous audit left behind**, so `newFindings` is exactly what the latest build broke. Running heads, rules and page numbers are detected and excluded first; otherwise a page number becomes "the lowest ink in the book" and every page looks broken
+- `audit` compares the PDF with the previous distinct PDF audited at the same `auditBlankMm`. `newFindings` lists new issues and existing gaps whose increase exceeds both 8 mm and 40% of their former depth. For those gaps, `previousMm` gives the former depth. Opening another page of the same PDF reuses the report. The first measurable audit at each threshold establishes its baseline.
 
 ## How the locating works
 
-`latex_look` compiles with `-synctex=1`, so every glyph carries a link to its source line. Then:
+SyncTeX records the source locations associated with boxes in the typeset document.
 
 - **point → source**: `synctex edit -o page:x:y:file.pdf`
 - **text → source**: search the `.tex` sources for the string, then `synctex view` each hit to get its page and coordinates
@@ -343,7 +342,8 @@ Coordinates are PDF points (72/inch) with the origin at the **top-left** of the 
   in the roman-numbered front matter. PDF page labels would let the tool translate, but
   LaTeX only writes them on request, so an agent that takes a page number from a user
   must confirm it against the rendered page first.
-- SyncTeX resolves to the *nearest text position*. A decorative rule drawn by a page style (`\pagestyle{headings}`, `fancyhdr`) has no glyph of its own, so it resolves to nearby text. Combine the coordinates with LaTeX knowledge — that is what `SKILL.md` is for.
+- SyncTeX resolves a point to the nearest box. For a horizontal rule, the plugin checks whether a nearby drawing command maps to the observed height on that page. When it cannot confirm the command, the result gives the nearest box and marks the rule's origin as unknown.
+- Text anchors match a literal substring on one source line. SyncTeX may return only one placement of a file included several times. For other placements, select the PDF page and use `pointX` and `pointY`.
 - Multi-pass convergence is checked by hashing `.aux`/`.toc`/`.out`/… — a document with `\tableofcontents` needs ≥ 2 passes, and `latex_look` reports a problem if the TOC comes out empty.
 - Source lookup follows nested literal `\input` and `\include` references and ignores LaTeX comments. A main-file `\includeonly` list limits which chapters contribute to the TOC check.
 - Cross-engine pixel parity is impossible: TeX vs Word, or two different TeX engines, have different line-breaking engines. This tool verifies *your* engine's output, not another format's.

@@ -242,6 +242,7 @@ await mkdir(join(stub, 'bin'), { recursive: true })
 await mkdir(join(stub, 'lib'), { recursive: true })
 const stubEntry = join(stub, 'bin', 'latex-look.mjs')
 await copyFile(entry, stubEntry)
+await copyFile(join(here, '..', 'lib', 'format.mjs'), join(stub, 'lib', 'format.mjs'))
 await writeFile(join(stub, 'lib', 'core.mjs'), `
 export async function look(file, options) {
   return { ok: true, file, options, sequence: { error: 'simulated text extraction failure' } }

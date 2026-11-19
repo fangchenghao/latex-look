@@ -7,6 +7,7 @@
  *   latex-look book.tex --page 12 --compare previous --json
  */
 import { look } from '../lib/core.mjs'
+import { formatDiff, formatPointInk } from '../lib/format.mjs'
 import { checkForUpdate, currentVersion, upgradeCommand } from '../lib/update.mjs'
 import { serveStdio } from '../lib/mcp.mjs'
 
@@ -90,16 +91,19 @@ function summary(r) {
       const fresh = r.audit.newFindings.length
       L.push('')
       if (!r.audit.hadBaseline) {
-        const why = r.audit.repaginatedFrom
-          ? ` (baseline: ${r.audit.repaginatedFrom} pages, now ${r.audit.pages} — matched by the text at each break, not by page number)`
-          : ''
-        L.push(`AUDIT  baseline recorded: ${n} page(s) stop short (${r.audit.sectionEnds} of them a chapter or section end)${why}`)
+        L.push(`AUDIT  baseline recorded at ${r.audit.blankMm} mm — ${n} layout finding(s) and ${r.audit.sectionEnds} section end(s)`)
+        if (r.audit.baselineNote) L.push(`       ${r.audit.baselineNote}`)
       }
-      else if (!fresh) L.push(`AUDIT  nothing new: still the same ${n} page(s) stop short, none introduced by this build`)
-      else L.push(`AUDIT  ${fresh} NEW finding(s) since the last run (${n} in total):`)
+      else if (!fresh) L.push(`AUDIT  nothing new or worse since the previous audited PDF (${n} finding(s) at ${r.audit.blankMm} mm)`)
+      else {
+        const change = r.audit.newFindings.some(f => f.previousMm != null) ? 'new or worsened' : 'NEW'
+        L.push(`AUDIT  ${fresh} ${change} finding(s) since the previous audited PDF (threshold ${r.audit.blankMm} mm)`)
+      }
       for (const f of (fresh ? r.audit.newFindings : []).slice(0, 8)) {
-        L.push(`  ${f.kind.padEnd(12)} p${f.page}  ${f.mm.toFixed(0)}mm  ${f.lastLine ? '…' + f.lastLine.slice(-28) : ''}`)
+        const previous = f.previousMm != null ? ` (previously ${f.previousMm.toFixed(0)} mm)` : ''
+        L.push(`  ${f.kind.padEnd(12)} p${f.page}  ${f.mm.toFixed(0)} mm${previous}  ${f.lastLine ? '…' + f.lastLine.slice(-28) : ''}`)
       }
+      if (r.audit.repaginatedFrom) L.push(`       PDF page count changed from ${r.audit.repaginatedFrom} to ${r.audit.pages}.`)
     }
   }
   if (r.aux?.length) L.push(`aux    ${r.aux.map((a) => `${a.tool}${a.ok ? '' : ' FAILED'}`).join(', ')}`)
@@ -126,27 +130,14 @@ function summary(r) {
       const fixed = h.pageVerified && h.synctexPage && h.synctexPage !== h.page ? `  (synctex: p${h.synctexPage})` : ''
       const at = typeof h.x === 'number' && typeof h.y === 'number' ? ` x=${h.x.toFixed(1)} y=${h.y.toFixed(1)}` : ''
       L.push(`  ${h.file}:${h.line}  → p${h.page}${at}${fixed}`)
-      if (h.ink && h.ink.kind === 'rule' && h.ink.origin === 'command' && h.ink.sourceLine) {
-        L.push(`      ^ ink at this point: horizontal rule at y=${h.ink.y}pt, ${Math.round(h.ink.span * 100)}% of page width`)
-        L.push(`        drawn by line ${h.ink.sourceLine.line}: ${h.ink.sourceLine.text}`)
-      } else if (h.ink && h.ink.kind === 'rule') {
-        // Facts only. What to do about it is the reader's knowledge, not this tool's,
-        // and a hint here would be wrong on any document that does not match the guess.
-        L.push(`      ^ ink at this point: horizontal rule at y=${h.ink.y}pt, ${Math.round(h.ink.span * 100)}% of page width`)
-        L.push(`        no rule-drawing command on line ${h.line} or any of the 4 lines around it`)
-        L.push('        so it is drawn somewhere else: a package, the page style, or a macro')
-      } else if (h.ink && h.ink.kind === 'blank') {
-        L.push('      ^ ink at this point: none (blank paper; the nearest box belongs to a different spot)')
-      }
+      L.push(...formatPointInk(h))
     }
   }
   if (r.diff) {
     L.push('')
     if (!r.diff.changedPixels) L.push('DIFF   nothing changed on this page')
     else {
-      const pct = r.diff.changedRatio * 100
-      const shown = pct >= 0.01 ? pct.toFixed(2) : pct >= 0.001 ? pct.toFixed(3) : pct.toFixed(4)
-      L.push(`DIFF   ${shown}% of the page changed (${r.diff.changedPixels} px)`)
+      L.push(`DIFF   ${formatDiff(r.diff)}`)
       if (r.diff.bbox) L.push(`       bbox x=${r.diff.bbox.x} y=${r.diff.bbox.y} w=${r.diff.bbox.width} h=${r.diff.bbox.height} (points)`)
       if (r.images.before) L.push(`before ${r.images.before}`)
       if (r.images.sideBySide) L.push(`both   ${r.images.sideBySide}`)
@@ -187,8 +178,8 @@ function summary(r) {
     latex-look <main.tex> [options]
 
   Options:
-    --page <n>          page to render (default 1)
-    --text <anchor>     locate this text and show the page it lands on
+    --page <n>          1-based PDF page to render (default 1, or the located page with --text)
+    --text <anchor>     locate a literal source phrase, restricted to --page when supplied
     --point <x>,<y>     locate the source of a point (PDF points, origin top-left);
                         "--point 300 78" is accepted too
     --compare <p>       'previous' (default) diffs against the PDF from before this
@@ -198,8 +189,8 @@ function summary(r) {
     --max-passes <n>    max compile passes (default 3)
     --fresh             ignore the build cache and recompile
     --timeout <s>       per-pass time budget in seconds (default 120)
-    --audit             audit every page and report findings new since the last audit
-    --audit-blank <mm>  how deep a bottom hole must be to count (default 30)
+    --audit             report new or worsened layout findings since the previous audited PDF
+    --audit-blank <mm>  blank-space threshold in mm, with its own audit baseline (default 30)
     --sequence <label>  reading order of "图 3-1"/"Figure 3.2"-style labels
     --json              machine-readable output
 

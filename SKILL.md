@@ -27,18 +27,20 @@ worse than one extra question.
 
 1. **Look first.** Call `latex_look` on the page the user is talking about and
    open the returned image. Do not guess the cause from source alone.
-2. **Locate.** If the user named a thing, pass `text:` to get its source line.
-   If they described a place, read the coordinates off the image and pass
-   `point:`. Open that file at that line — that is where the truth is.
+2. **Locate.** Keep the verified PDF `page` when passing a `text` anchor, especially
+   for repeated captions or headings. For a spot in the original page PNG, measure
+   from the top left and multiply both pixel coordinates by `72 / dpi`. Pass the
+   results as `pointX` and `pointY`. The centre of a diff's `bbox` is already in
+   PDF points. Inspect the returned source line and any note about the nearest box.
 3. **Diagnose the construct, not the pixels.** Ask *what LaTeX thing draws this?*
    A rule at the top of the page is almost never a `\rule`; it is a page style.
    See the playbook below.
 4. **Edit minimally.** Smallest change that moves the rendering in the wanted
    direction. Prefer a preamble setting over rewriting content.
 5. **Look again — always** with `compare: "previous"`.
-6. **Read the diff.** `changedRatio` tells you whether your edit did anything:
-   - `0` → the edit had no effect. Wrong file, shadowed by a later setting, or
-     the construct is not what you thought. Go back to step 3.
+6. **Read the diff.** `changedRatio` measures the pixels that changed on this page.
+   - `0` means that the preview at the requested DPI is identical. If a fine
+     rule should have changed, raise `dpi` and compare the same page again.
    - `> 0.02` on a page where you touched one element → reflow. Expected, but
      look at the whole page, not just your element.
    - surprisingly huge → you broke something. Inspect before reporting.
@@ -67,12 +69,11 @@ stops short. `audit: true` names the figure that opens the next page
 7b. **Audit, when the edit touched more than one page.** A request like "give every
 figure a caption" is fulfilled per figure and can still leave ten pages broken:
 the caption adds height, the figure no longer fits, and it jumps to the next page,
-leaving a hole. No single page shows that. Pass `audit: true` to `latex_look`:
-it measures every page and reports only findings **that were not there in the
-previous usable audit of the same document** — so a first usable run records a
-baseline. Failed builds and uncalibratable audits do not replace it. Read the audit's
-status: `cannot measure` is not a pass, and `nothing new` means no new findings under
-this audit's measurements, not proof that every part of the layout is unchanged.
+leaving a hole. Set `audit: true` before and after the edit, using the same
+`auditBlankMm`. The first measurable audit establishes a reference. Later audits
+report new findings and substantially larger gaps relative to the previous
+distinct PDF at that threshold. Reading another page of the same PDF reuses
+the report. If the audit says `cannot measure`, inspect its reason.
 
 ## Playbook: symptom → cause → fix
 
@@ -176,7 +177,7 @@ document is broken, suspect one of these:
 | Jumped to another page | `[htbp]` + `\FloatBarrier`; or `\usepackage{float}` + `[H]` |
 | Adding a caption pushed a near-full-page figure off the page, leaving half a page blank | the figure was already as tall as the text block, so a few millimetres of caption cannot fit above it. Wrapping it in `minipage` makes it unbreakable. Make that figure a float (`\begin{figure}[!tbp]`) so the text after it fills the page and the figure starts the next one |
 | Caption orphaned on the next page | wrap figure+caption in one `minipage` — a caption is not tied to its graphic by default |
-| "Delete the line at the top of the page", and the point lookup reports `no rule-drawing command on line N or any of the 4 lines around it` | the rule comes from the page style. It is `\pagestyle{fancy}` / `\pagestyle{headings}` with the head rule still on, or a `\rule`/`\hrule` in a `\markboth`-style macro. Fix it with `\fancyhf{}` plus `\renewcommand{\headrulewidth}{0pt}`, or switch to `\pagestyle{plain}`. Do **not** edit the line the lookup named (`\end{document}`); it is only the nearest box. When the rule *is* typed in the body, the lookup names it instead: `drawn by line 15: \rule{\linewidth}{0.4pt}`, and that is the line to change |
+| "Delete the line at the top of the page" | If the point lookup reports `The source of this rule is unconfirmed`, the named line is the nearest SyncTeX box. Inspect the active page style, header macros and nearby body commands. For a confirmed `fancyhdr` header rule, `\renewcommand{\headrulewidth}{0pt}` removes the rule and preserves the header text. If the lookup names a drawing command, such as `drawn by line 15: \rule{\linewidth}{0.4pt}`, inspect that line and verify the edit in the page diff. |
 | fontspec errors out of `ctex-fontset-windows.def`  | the platform Chinese fontset is missing: ctex picks SimSun on Windows and the machine has no such font  | ask for the fontset that ships with TeX: `\documentclass[UTF8,fontset=fandol]{ctexart}` |
 | A figure sits above the chapter title on a chapter's first page | a top float won the opening page. `\let\origchapter\chapter\renewcommand{\chapter}{\suppressfloats[t]\origchapter}` (no `@` in the name, or wrap it in `\makeatletter`) forbids top floats on every chapter opening, now and for chapters added later |
 | Numbers run backwards: 图 3-4 on one page, 图 3-3 on the next | you floated one object but left its numbered neighbours inline. A float is placed later than an inline object that follows it in the source, and the reader turns the page to see 3-4 before 3-3. Floats of the same class keep their relative order, so float the **whole run** — never a float mixed into inline siblings. Check with `latex_look --sequence 图` after any change to how objects are placed |

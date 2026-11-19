@@ -4,7 +4,7 @@ import { isAbsolute, resolve } from 'node:path'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 
 import { ENGINES, look } from './lib/core.mjs'
-import { formatDiff, formatResult } from './lib/format.mjs'
+import { formatResult } from './lib/format.mjs'
 import { PACKAGE, checkForUpdate, restartPending, upgradeCommand } from './lib/update.mjs'
 
 // The plugin id, deliberately unchanged when the package moved to a scope: profile
@@ -58,8 +58,8 @@ const SYSTEM_PROMPT = [
   'A LaTeX document that compiles can still look wrong, and blind editing will not reveal it.',
   'When the user describes a page visually — a table style, a rule to remove, spacing, a line running into the margin, a figure that is too large, page headers and footers —',
   'or before claiming any layout change is finished, call the `latex_look` tool:',
-  'it compiles the document, renders the requested page to a PNG you can open with an image reader, and maps a PDF point or a text anchor back to the exact source line.',
-  'Work in the loop look → diagnose → edit → look again, passing the previous PDF as `compare` so the diff shows precisely what your edit changed.',
+  'it compiles the document, renders the requested page to a PNG, locates source text, and maps a selected point to its nearest SyncTeX box. A decorative rule may have an unconfirmed source.',
+  'Keep the verified PDF page when looking up a text anchor. After editing, look again with the default `compare` value of "previous" to see the change.',
   'Never report a layout fix as done without having looked at the rendered page afterwards.',
   // Two lessons from a reader who only sees the PDF: page numbers in the file are
   // not the numbers printed on the page, and a reply full of pixel counts answers a
@@ -94,7 +94,7 @@ export function apply(ctx) {
       description:
         'See what a LaTeX document actually looks like. Compiles the main .tex with enough passes for the table of contents ' +
         'and cross-references to settle, renders the requested page to a PNG that the image reader can open, optionally resolves ' +
-        'a text anchor or a PDF point to the exact source file and line via SyncTeX, and optionally diffs the page against the ' +
+        'a text anchor to its source or a PDF point to the nearest SyncTeX box, and optionally diffs the page against the ' +
         'previous PDF so you can see what an edit changed (both pages in one side-by-side image). ' +
         'Note that `page` is the PDF page index, not the number printed on the page. ' +
         'Also runs makeglossaries/makeindex/biber when the document needs them, ' +
@@ -107,7 +107,7 @@ export function apply(ctx) {
         },
         page: {
           type: 'number',
-          description: 'PDF page to render, 1-based. Omit when using `text`, which finds the page itself.',
+          description: '1-based PDF page to render. With text, restrict source matches to this page. Omit to find the page from the text.',
         },
         text: {
           type: 'string',
@@ -117,7 +117,7 @@ export function apply(ctx) {
         pointX: {
           type: 'number',
           description:
-            'X of a point on the page, used together with pointY. Feed back the bbox of a previous diff to inspect what changed.',
+            'X in PDF points from the top left, together with pointY. Multiply original preview pixel coordinates by 72 / dpi. A diff bbox is already in PDF points.',
         },
         pointY: {
           type: 'number',
@@ -145,11 +145,9 @@ export function apply(ctx) {
         audit: {
           type: 'boolean',
           description:
-            'Audit every page for layout regressions, and compare the result with the baseline recorded by the previous audit ' +
-            "of this document. Reports pages that stop short of the deepest text in the book, pages that start low, and nearly " +
-            "empty pages — but only the ones that were NOT there before, i.e. the ones this edit introduced. Run it after a " +
-            "change to a whole class of pages (captions, header, spacing): a request can be fulfilled and still leave other pages " +
-            "broken, and that is exactly what this catches.",
+            'Audit every page for layout regressions. Compare with the previous distinct PDF audited at the same auditBlankMm. ' +
+            'Reports newly short, low-starting or nearly empty pages and gaps that grew substantially. ' +
+            'Use after changing captions, headers or spacing across pages.',
         },
         auditBlankMm: {
           type: 'number',
@@ -186,6 +184,9 @@ export function apply(ctx) {
           const text = args.text == null ? '' : String(args.text).trim()
           const at = text ? { text } : hasX ? { x: args.pointX, y: args.pointY } : null
 
+          // An idle session may need a registry refresh. Let an available
+          // note accompany this page without waiting for network I/O.
+          currentVersionNote().catch(() => {})
           const result = await look(file, {
             // pass `page` through untouched: core rejects a decimal or an out of
             // range value instead of quietly falling back to page 1
@@ -201,7 +202,7 @@ export function apply(ctx) {
             auditBlankMm: clampInt(args.auditBlankMm, 5, 200, 30),
             sequence: args.sequence ? String(args.sequence) : null,
           })
-          return formatResult(result, { hint: await currentVersionNote() })
+          return formatResult(result, { hint: versionNote })
         } catch (e) {
           return `latex_look: ${e instanceof Error ? e.message : String(e)}`
         }
