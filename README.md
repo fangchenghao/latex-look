@@ -3,6 +3,7 @@
 [![npm](https://img.shields.io/npm/v/@fffangchenghao%2Fdsh-latex-look?color=blue)](https://www.npmjs.com/package/@fffangchenghao/dsh-latex-look)
 [![tests](https://img.shields.io/badge/tests-smoke%20%2B%20scenarios-brightgreen)](test/)
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![fangchenghao/latex-look MCP server](https://glama.ai/mcp/servers/fangchenghao/latex-look/badges/score.svg)](https://glama.ai/mcp/servers/fangchenghao/latex-look)
 
 **English** · [简体中文](README.zh-CN.md)
 
